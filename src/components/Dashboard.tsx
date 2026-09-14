@@ -28,7 +28,10 @@ import {
   Wallet,
   Play,
   Zap,
+  AlertTriangle,
+  Lock,
 } from 'lucide-react';
+import { sound } from '../utils/soundEffects';
 import {
   UserProfile,
   ExamRecord,
@@ -74,6 +77,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [resetSuccessToast, setResetSuccessToast] = useState(false);
+  const [permissionNotice, setPermissionNotice] = useState<{
+    title: string;
+    message: string;
+    type: 'unverified' | 'expired' | 'sessions';
+  } | null>(null);
 
   // Difficulty Tier & Probabilities
   const getDifficultyProbabilities = (score: string) => {
@@ -122,32 +130,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleStartOrRetakeModule = (mod: SkillCategory) => {
     if (user.paymentStatus !== 'approved') {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন ফি ভেরিফিকেশন চলছে। অ্যাডমিন অনুমোদন সম্পন্ন হলে নোটিশটি সরে যাবে এবং পরীক্ষা শুরু হবে।'
-          : 'Your payment is being verified by admin. Once approved, the notice will disappear and exams will unlock.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '🔒 সাবস্ক্রাইবার পারমিশন নোটিশ' : '🔒 Subscriber Permission Required',
+        message: lang === 'bn'
+          ? 'আপনার অ্যাকাউন্টটি বর্তমানে ভেরিফিকেশন ও পেমেন্ট প্রসেসিংয়ে রয়েছে (১০-৩০ মিনিট সময় লাগে)। কেবলমাত্র অনুমোদিত সাবস্ক্রাইবারদের ক্যামব্রিজ মক টেস্ট ও এআই স্পিকিং ব্যবহারের অনুমতি দেওয়া হবে। ভেরিফিকেশন সম্পন্ন হলে স্বয়ংক্রিয়ভাবে পরীক্ষা চালু হবে।'
+          : 'Your account and payment are currently being processed for verification (10-30 mins). Examinations and AI voice interviews are exclusively accessible to verified subscribers.',
+        type: 'unverified',
+      });
       return;
     }
     if (isExpired) {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন মেয়াদ শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
-          : 'Your subscription has expired. Please renew to take new exams.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '⚠️ সাবস্ক্রিপশন মেয়াদোত্তীর্ণ' : '⚠️ Subscription Expired',
+        message: lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশনের মেয়াদ শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
+          : 'Your subscription has expired. Please renew your plan to take new exams.',
+        type: 'expired',
+      });
       return;
     }
 
     const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
     if (currentSessions <= 0) {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
-          : 'You have used all sessions in your subscription plan. Please renew to continue taking exams.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '⚠️ সেশন কোটা শেষ' : '⚠️ Session Quota Reached',
+        message: lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন ব্যবহার করা হয়েছে। নতুন পরীক্ষা দিতে প্ল্যান রিনিউ করুন।'
+          : 'You have used all exam sessions in your current subscription plan.',
+        type: 'sessions',
+      });
       return;
     }
 
+    sound.playSuccess();
     // Deduct 1 session on starting any exam
     onUpdateUser({
       availableSessions: Math.max(0, currentSessions - 1),
@@ -167,32 +185,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleStartFullMock = () => {
     if (user.paymentStatus !== 'approved') {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন ফি ভেরিফিকেশন চলছে। অ্যাডমিন অনুমোদন সম্পন্ন হলে পরীক্ষা শুরু হবে।'
-          : 'Your payment is pending admin approval.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '🔒 সাবস্ক্রাইবার পারমিশন নোটিশ' : '🔒 Subscriber Permission Required',
+        message: lang === 'bn'
+          ? 'আপনার অ্যাকাউন্টটি বর্তমানে ভেরিফিকেশন ও পেমেন্ট প্রসেসিংয়ে রয়েছে (১০-৩০ মিনিট সময় লাগে)। কেবলমাত্র অনুমোদিত সাবস্ক্রাইবারদের ক্যামব্রিজ ফুল মক টেস্ট ব্যবহারের অনুমতি দেওয়া হবে।'
+          : 'Your account and payment are pending verification. Full mock tests are reserved for verified subscribers.',
+        type: 'unverified',
+      });
       return;
     }
     if (isExpired) {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন মেয়াদ শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
-          : 'Your subscription has expired. Please renew your plan.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '⚠️ সাবস্ক্রিপশন মেয়াদোত্তীর্ণ' : '⚠️ Subscription Expired',
+        message: lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশনের মেয়াদ শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
+          : 'Your subscription has expired. Please renew your plan.',
+        type: 'expired',
+      });
       return;
     }
 
     const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
     if (currentSessions <= 0) {
-      alert(
-        lang === 'bn'
-          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
-          : 'You have used all sessions. Please renew your plan.'
-      );
+      sound.playError();
+      setPermissionNotice({
+        title: lang === 'bn' ? '⚠️ সেশন কোটা শেষ' : '⚠️ Session Quota Reached',
+        message: lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন ব্যবহার করা হয়েছে। নতুন পরীক্ষা দিতে প্ল্যান রিনিউ করুন।'
+          : 'You have used all exam sessions.',
+        type: 'sessions',
+      });
       return;
     }
 
+    sound.playSuccess();
     // Deduct 1 session on starting full mock
     onUpdateUser({
       availableSessions: Math.max(0, currentSessions - 1),
@@ -337,20 +365,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </header>
 
-        {/* Pending Notice Bar if not yet approved */}
+        {/* Pending Verification Notice Bar if not yet approved */}
         {user.paymentStatus === 'pending' && (
-          <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex items-center justify-between shadow-inner">
-            <div className="flex items-center gap-1.5 truncate">
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">
-                {lang === 'bn'
-                  ? 'পেমেন্ট যাচাই চলছে। অ্যাডমিন অনুমোদন করলে নোটিশটি সরে যাবে।'
-                  : 'Payment pending verification. Once approved, notice will disappear.'}
-              </span>
+          <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-slate-950 px-4 py-3 text-xs shadow-md border-b border-amber-600">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-start sm:items-center gap-2">
+                <Clock className="w-4 h-4 shrink-0 text-slate-950 mt-0.5 sm:mt-0 animate-spin" />
+                <div>
+                  <span className="font-black text-xs block sm:inline">
+                    {lang === 'bn'
+                      ? '⚠️ অ্যাকাউন্ট স্ট্যাটাস: ভেরিফিকেশন ও পেমেন্ট প্রসেসিং চলছে'
+                      : '⚠️ Status: Account Verification & Payment Processing'}
+                  </span>
+                  <span className="text-[11px] font-medium text-slate-900 block sm:inline sm:ml-2">
+                    {lang === 'bn'
+                      ? '১০-৩০ মিনিটের মধ্যে অ্যাডমিন ভেরিফিকেশন সম্পন্ন হলে মক টেস্টের পূর্ণ পারমিশন চালু হবে।'
+                      : 'Your payment is being verified (10-30 mins). Subscriber permissions unlock upon verification.'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] bg-slate-950/20 px-2.5 py-1 rounded-lg font-mono font-bold">
+                  TrxID: {user.transactionId || 'Processing'}
+                </span>
+                <button
+                  onClick={() => onNavigateToPage('support')}
+                  className="text-[11px] bg-slate-950 text-white hover:bg-slate-800 px-2.5 py-1 rounded-lg font-bold cursor-pointer transition-all"
+                >
+                  {lang === 'bn' ? 'সাপোর্ট' : 'Support'}
+                </button>
+              </div>
             </div>
-            <span className="text-[10px] bg-black/10 px-2 py-0.5 rounded-full shrink-0 font-mono">
-              TrxID: {user.transactionId?.slice(-6) || 'Pending'}
-            </span>
           </div>
         )}
 
@@ -1172,6 +1217,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 ? 'পরীক্ষার সমস্ত অগ্রগতি সফলভাবে রিসেট করা হয়েছে!'
                 : 'Exam progress and scores have been reset successfully!'}
             </span>
+          </div>
+        )}
+
+        {/* Subscriber Verification & Permission Warning Modal */}
+        {permissionNotice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-amber-300 text-slate-800 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-[#0A2540]">
+                    {permissionNotice.title}
+                  </h3>
+                  <span className="text-[11px] text-amber-700 font-semibold">
+                    Subscriber Privileges Required
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl text-xs text-slate-700 leading-relaxed">
+                {permissionNotice.message}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setPermissionNotice(null);
+                    onNavigateToPage('support');
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+                >
+                  {lang === 'bn' ? 'সাপোর্ট হেল্পলাইন' : 'Contact Support'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setPermissionNotice(null);
+                  }}
+                  className="flex-1 py-2.5 px-5 rounded-xl bg-[#0A2540] hover:bg-sky-950 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+                >
+                  {lang === 'bn' ? 'বুঝেছি (Got It)' : 'Got It'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

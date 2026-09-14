@@ -31,6 +31,7 @@ import { generateSpecificModulePdf } from '../utils/pdfGenerator';
 import { getTierFromScore } from '../utils/questionBank';
 import { getReadingTestSet, ReadingTestSet, ReadingQuestion } from '../utils/readingQuestions';
 import { getListeningTestSet, ListeningTestSet, ListeningQuestion } from '../utils/listeningQuestions';
+import { sound } from '../utils/soundEffects';
 
 interface ExamPageViewProps {
   moduleType: SkillCategory;
@@ -577,12 +578,15 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
                         )}
                       </div>
 
-                      {/* Navigation Buttons */}
-                      <div className="pt-6 border-t border-slate-200 flex items-center justify-between gap-3">
+                      {/* Navigation Buttons (Sticky Bottom on Mobile so buttons are always visible) */}
+                      <div className="sticky bottom-0 bg-white/95 backdrop-blur-md pt-3 pb-3 sm:pb-4 border-t border-slate-200 flex items-center justify-between gap-3 z-20 shadow-md sm:shadow-none -mx-4 px-4 sm:mx-0 sm:px-0">
                         <button
                           disabled={currentQuestion === 0}
-                          onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-                          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                          onClick={() => {
+                            sound.playClick();
+                            setCurrentQuestion((prev) => Math.max(0, prev - 1));
+                          }}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1 active:scale-95"
                         >
                           <ChevronLeft className="w-4 h-4" />
                           <span>{lang === 'bn' ? 'আগেরটি' : 'Previous'}</span>
@@ -590,16 +594,22 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
 
                         {currentQuestion < currentQuestionsList.length - 1 ? (
                           <button
-                            onClick={() => setCurrentQuestion((prev) => prev + 1)}
-                            className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                            onClick={() => {
+                              sound.playClick();
+                              setCurrentQuestion((prev) => prev + 1);
+                            }}
+                            className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm"
                           >
                             <span>{lang === 'bn' ? 'পরের প্রশ্ন' : 'Next Question'}</span>
                             <ChevronRight className="w-4 h-4" />
                           </button>
                         ) : (
                           <button
-                            onClick={handleSubmitExam}
-                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                            onClick={() => {
+                              sound.playSuccess();
+                              handleSubmitExam();
+                            }}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-md active:scale-95"
                           >
                             {lang === 'bn' ? 'পরীক্ষা সাবমিট করুন' : 'Submit Reading Test'}
                           </button>
@@ -746,27 +756,38 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
                       })}
                     </div>
 
-                    {/* Controls */}
-                    <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                    {/* Controls (Sticky Bottom on Mobile) */}
+                    <div className="sticky bottom-0 bg-white/95 backdrop-blur-md pt-3 pb-3 sm:pb-4 border-t border-slate-100 flex items-center justify-between gap-3 z-20 shadow-md sm:shadow-none -mx-5 px-5 sm:mx-0 sm:px-0">
                       <button
                         disabled={currentQuestion === 0}
-                        onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-                        className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer"
+                        onClick={() => {
+                          sound.playClick();
+                          setCurrentQuestion((prev) => Math.max(0, prev - 1));
+                        }}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1 active:scale-95"
                       >
-                        {lang === 'bn' ? 'আগেরটি' : 'Previous'}
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>{lang === 'bn' ? 'আগেরটি' : 'Previous'}</span>
                       </button>
 
                       {currentQuestion < currentQuestionsList.length - 1 ? (
                         <button
-                          onClick={() => setCurrentQuestion((prev) => prev + 1)}
-                          className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          onClick={() => {
+                            sound.playClick();
+                            setCurrentQuestion((prev) => prev + 1);
+                          }}
+                          className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm"
                         >
-                          {lang === 'bn' ? 'পরের প্রশ্ন' : 'Next Question'}
+                          <span>{lang === 'bn' ? 'পরের প্রশ্ন' : 'Next Question'}</span>
+                          <ChevronRight className="w-4 h-4" />
                         </button>
                       ) : (
                         <button
-                          onClick={handleSubmitExam}
-                          className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                          onClick={() => {
+                            sound.playSuccess();
+                            handleSubmitExam();
+                          }}
+                          className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-md active:scale-95"
                         >
                           {lang === 'bn' ? 'লিসেনিং সাবমিট করুন' : 'Submit Listening Test'}
                         </button>

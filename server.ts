@@ -16,12 +16,68 @@ let aiClient: GoogleGenAI | null = null;
 function getAIClient(): GoogleGenAI | null {
   if (!aiClient && process.env.GEMINI_API_KEY) {
     try {
-      aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      aiClient = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
     } catch (err) {
       console.warn('Failed to initialize GoogleGenAI client:', err);
     }
   }
   return aiClient;
+}
+
+// Resilient multi-model fallback list to handle temporary 503 high demand or rate spikes
+const CANDIDATE_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
+];
+
+interface GeminiCallParams {
+  contents: string;
+  systemInstruction?: string;
+  responseMimeType?: string;
+  temperature?: number;
+}
+
+async function callGeminiWithFallback(params: GeminiCallParams): Promise<string | null> {
+  const client = getAIClient();
+  if (!client) return null;
+
+  for (let i = 0; i < CANDIDATE_MODELS.length; i++) {
+    const model = CANDIDATE_MODELS[i];
+    try {
+      const config: any = {};
+      if (params.systemInstruction) config.systemInstruction = params.systemInstruction;
+      if (params.responseMimeType) config.responseMimeType = params.responseMimeType;
+      if (params.temperature !== undefined) config.temperature = params.temperature;
+
+      const response = await client.models.generateContent({
+        model,
+        contents: params.contents,
+        config,
+      });
+
+      const text = response.text?.trim();
+      if (text) {
+        return text;
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      console.warn(
+        `Gemini model '${model}' unavailable (${err?.status || err?.code || 'error'}: ${errMsg.slice(0, 100)}). Trying next fallback model...`
+      );
+      if (i < CANDIDATE_MODELS.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+  }
+  return null;
 }
 
 // Health check endpoint
@@ -37,127 +93,159 @@ app.post('/api/speaking/chat', async (req, res) => {
   const { stage, messages, userResponse, topic, targetScore } = req.body;
   const targetBand = targetScore || '7.5';
 
-  const systemInstruction = `You are Dr. Alistair Finch, a seasoned and meticulous Cambridge IELTS Senior Speaking Examiner.
-You are conducting an official, high-fidelity IELTS Speaking Test.
+  const systemInstruction = `You are Dr. Alistair Finch, a distinguished Cambridge IELTS Senior Speaking Examiner conducting a live voice assessment.
 Candidate's Target Band: ${targetBand}.
-Current Part: ${stage} (Part 1 = Interview & everyday familiar topics; Part 2 = Individual long turn follow-up; Part 3 = Two-way analytical discussion).
+Current Part: ${stage} (Part 1 = Interview on familiar topics; Part 2 = Cue card follow-up; Part 3 = In-depth analytical and societal discussion).
 
-CRITICAL EXAMINER BEHAVIOR FOR VOICE-ONLY INTERVIEW:
-1. Speak ONLY in English. The user will NOT see any text on screen, so everything must be spoken naturally aloud.
-2. Act like a real human Cambridge examiner: polite, articulate, academic, but honest and rigorous with scoring.
-3. Actively LISTEN to what the student said.
-4. If they make a grammatical mistake, wrong collocation, or weak structure, include a brief, courteous spoken correction and suggestion directly in your spoken reply before moving to the next question (e.g., "Well noted. Just remember to say 'I agree' rather than 'I am agree'. Now, moving on to...").
-5. If their answer is too brief or lacks substance, challenge them to elaborate with an example.
-6. Keep your spoken response focused, conversational, and under 50-60 words so the speech synthesis sounds natural.
-7. Return your response in clean JSON format:
+CRITICAL VOICE-ONLY EXAMINER PROTOCOL:
+1. Pure Voice Navigation: The student sees NO text; they will only HEAR your voice. You must speak directly, articulately, in standard British English.
+2. Active Listening & Direct Acknowledgement: Begin by explicitly referencing what the student just answered (e.g., "That is an interesting observation about traffic in your city...", or "I appreciate your insight regarding university education..."). DO NOT sound like an auto-bot repeating generic lines.
+3. Spoken Feedback & Immediate Correction: If the candidate made any grammatical error (e.g., "I am agree", "every people are", incorrect tense, awkward preposition), politely give a 1-sentence spoken correction before moving on (e.g., "Just note that we say 'I agree' rather than 'I am agree'"). If their answer was too brief or repetitive, challenge them.
+4. Intelligent Next Question: Deliver a fresh, engaging follow-up question that logically builds upon their response and tests higher-level vocabulary and syntax.
+5. NO REPETITIONS: Never repeat a question or template already present in the conversation history.
+6. Keep your speech concise and conversational (40 to 65 words total), natural for speech synthesis.
+
+Return ONLY clean JSON:
 {
-  "examinerSpeech": "The exact words spoken aloud by the examiner in English, including any spoken mistake correction, feedback, and the next question.",
-  "doubtOrChallenge": "A probing doubt or follow-up question.",
-  "correctionNote": "Brief note of correction if applicable.",
+  "examinerSpeech": "The exact British English words spoken aloud by the examiner, including personal acknowledgement, any spoken grammar correction/tip, and the next question.",
+  "doubtOrChallenge": "The core probing doubt or question asked.",
+  "correctionNote": "Brief grammar or lexical correction if any, or null.",
   "shouldAdvance": false
 }`;
 
-  const client = getAIClient();
+  const historyPrompt = (messages || [])
+    .map((m: any) => `${m.role === 'examiner' ? 'DR. FINCH' : 'CANDIDATE'}: ${m.content}`)
+    .join('\n');
 
-  if (client) {
+  const prompt = `Conversation history so far:
+${historyPrompt}
+
+LATEST CANDIDATE SPOKEN RESPONSE:
+"${userResponse || '(Candidate remained silent or gave no discernible answer)'}"
+
+Listen attentively to the candidate's actual words above, acknowledge them, provide spoken feedback if needed, and ask your next question in JSON:`;
+
+  const text = await callGeminiWithFallback({
+    contents: prompt,
+    systemInstruction,
+    responseMimeType: 'application/json',
+    temperature: 0.7,
+  });
+
+  if (text) {
     try {
-      const prompt = `Conversation history:
-${(messages || []).map((m: any) => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}
-
-LATEST CANDIDATE RESPONSE: "${userResponse || '(Candidate was silent or gave no substantive answer)'}"
-
-Generate your next examiner response in JSON:`;
-
-      const response = await client.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-        },
-      });
-
-      const text = response.text || '';
-      try {
-        const parsed = JSON.parse(text);
+      const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      if (parsed.examinerSpeech) {
         return res.json({ success: true, ...parsed });
-      } catch (parseErr) {
-        // Fallback to text parsing
-        return res.json({
-          success: true,
-          examinerSpeech: text.replace(/[{}]/g, '').trim(),
-          doubtOrChallenge: "Could you elaborate further with an example?",
-          correctionNote: null,
-          shouldAdvance: false,
-        });
       }
-    } catch (err: any) {
-      console.warn('Gemini API call failed, using heuristic examiner engine:', err.message);
+    } catch (parseErr) {
+      return res.json({
+        success: true,
+        examinerSpeech: text.replace(/[{}"\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300),
+        doubtOrChallenge: "Could you elaborate on that with a concrete example?",
+        correctionNote: null,
+        shouldAdvance: false,
+      });
     }
   }
 
-  // Resilient Built-in Cambridge Examiner Dialogue Engine (Fallback if key is absent or network fails)
-  const trimmed = (userResponse || '').trim().toLowerCase();
+  // Dynamic Contextual Cambridge Examiner Dialogue Engine (Fallback)
+  const trimmed = (userResponse || '').trim();
+  const lower = trimmed.toLowerCase();
   const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
 
-  let examinerSpeech = '';
-  let doubtOrChallenge = '';
   let correctionNote: string | null = null;
-  let shouldAdvance = false;
-
-  // Real-time grammar & collocation checks
-  if (trimmed.includes('i am agree') || trimmed.includes('i am disagree')) {
-    correctionNote = "Grammar note: Say 'I agree' or 'I disagree' rather than 'I am agree'.";
-  } else if (trimmed.includes('people is') || trimmed.includes('everybody are')) {
-    correctionNote = "Subject-verb agreement: 'People' takes plural ('people are'), while 'everybody' takes singular ('everybody is').";
-  } else if (trimmed.includes('in my point of view')) {
-    correctionNote = "Lexical refinement: Prefer 'From my point of view' or 'In my view'.";
-  } else if (wordCount > 0 && wordCount < 6) {
-    correctionNote = "Fluency note: In IELTS, avoid 1-line answers; develop your idea with reasons and examples.";
+  if (lower.includes('i am agree') || lower.includes('i am disagree')) {
+    correctionNote = "Take note: in English, we say 'I agree' or 'I disagree' rather than 'I am agree'.";
+  } else if (lower.includes('people is') || lower.includes('everybody are')) {
+    correctionNote = "A quick grammatical reminder: 'people' is plural, so use 'people are', while 'everybody' takes the singular 'everybody is'.";
+  } else if (lower.includes('in my point of view')) {
+    correctionNote = "For a higher lexical score, prefer 'In my view' or 'From my perspective'.";
+  } else if (lower.includes('very good') || lower.includes('very bad')) {
+    correctionNote = "To target Band 7 or higher, replace basic adjectives with richer vocabulary like 'exceptional' or 'detrimental'.";
+  } else if (wordCount > 0 && wordCount < 8) {
+    correctionNote = "Remember that in IELTS, concise one-line answers limit your fluency score; always substantiate with reasoning.";
   }
 
-  if (wordCount === 0 || trimmed.includes('i dont know') || trimmed.includes("don't know")) {
-    examinerSpeech = "I understand it might feel challenging, but do try your best. Let us look at it from another angle: how might this relate to your own personal experience?";
-    doubtOrChallenge = "Can you share any observation from your own surroundings?";
-  } else if (stage === 'part1') {
-    if (wordCount < 10) {
-      examinerSpeech = "I see. But could you tell me a little more? Why exactly do you feel that way?";
-      doubtOrChallenge = "Could you give a specific personal instance?";
+  // Dynamic context awareness from what the candidate said
+  const previousExaminerSpeech = (messages || [])
+    .filter((m: any) => m.role === 'examiner')
+    .map((m: any) => m.content.toLowerCase())
+    .join(' ');
+
+  let acknowledgement = "Thank you. ";
+  let nextQuestion = "";
+
+  if (wordCount === 0 || lower.includes("don't know") || lower.includes('dont know')) {
+    acknowledgement = "I understand you may feel hesitant, but do attempt to voice your thoughts. ";
+    nextQuestion = "Let us approach it from your daily life: what is one routine habit that you find most indispensable, and why?";
+  } else if (lower.includes('dhaka') || lower.includes('city') || lower.includes('town') || lower.includes('village') || lower.includes('live')) {
+    acknowledgement = `I see your point regarding your living environment. `;
+    if (!previousExaminerSpeech.includes('transport') && !previousExaminerSpeech.includes('traffic')) {
+      nextQuestion = "Urban living often brings infrastructure challenges. How do you feel public transportation in your area could be fundamentally improved?";
+    } else if (!previousExaminerSpeech.includes('green') && !previousExaminerSpeech.includes('park')) {
+      nextQuestion = "Do you think modern cities are allocating enough green spaces and recreational parks for their residents?";
     } else {
-      const part1Doubts = [
-        "That's an interesting point. However, some people argue the exact opposite due to modern lifestyle shifts. How would you answer them?",
-        "Indeed. But don't you think that depends heavily on an individual's financial background?",
-        "Right. And looking ahead, do you expect this trend to intensify over the next decade?",
-      ];
-      examinerSpeech = part1Doubts[Math.floor(Math.random() * part1Doubts.length)];
-      doubtOrChallenge = "What is the primary factor driving this?";
+      nextQuestion = "Looking ahead to the next twenty years, would you prefer to settle in a bustling metropolis or a quieter rural setting?";
     }
+  } else if (lower.includes('study') || lower.includes('university') || lower.includes('school') || lower.includes('college') || lower.includes('learn')) {
+    acknowledgement = `That is a sensible reflection on your educational path. `;
+    if (!previousExaminerSpeech.includes('career') && !previousExaminerSpeech.includes('profession')) {
+      nextQuestion = "How do you foresee your academic qualifications directly aiding your long-term career aspirations?";
+    } else {
+      nextQuestion = "With the rise of online courses and digital classrooms, do you believe traditional physical universities will remain relevant?";
+    }
+  } else if (lower.includes('work') || lower.includes('job') || lower.includes('career') || lower.includes('business') || lower.includes('company')) {
+    acknowledgement = `Your professional experience certainly informs that view. `;
+    if (!previousExaminerSpeech.includes('balance')) {
+      nextQuestion = "Many professionals struggle with work-life balance in today's fast-paced economy. How do you personally manage professional stress?";
+    } else {
+      nextQuestion = "Do you believe artificial intelligence will significantly automate positions in your field over the coming decade?";
+    }
+  } else if (lower.includes('technology') || lower.includes('phone') || lower.includes('computer') || lower.includes('ai') || lower.includes('internet')) {
+    acknowledgement = `Technology certainly plays a pervasive role in that regard. `;
+    nextQuestion = "While digital connectivity brings immense efficiency, does it risk diminishing genuine face-to-face human interactions in society?";
+  } else if (lower.includes('hobby') || lower.includes('music') || lower.includes('sport') || lower.includes('book') || lower.includes('reading') || lower.includes('free time')) {
+    acknowledgement = `It is wonderful to hear your personal enthusiasm for that pursuit. `;
+    nextQuestion = "Do you feel that young people today have fewer opportunities to develop meaningful offline hobbies compared to previous generations?";
   } else if (stage === 'part2_speak') {
-    examinerSpeech = "Thank you. You addressed the cue card thoroughly. Now, reflecting on what you just explained, would you make the same choices if you faced the situation again today?";
-    doubtOrChallenge = "How has that experience influenced your broader decision making?";
+    acknowledgement = `Thank you. You presented your topic with notable clarity. `;
+    nextQuestion = "Reflecting on that experience, in what ways did it influence your decision-making maturity in subsequent situations?";
+  } else if (stage === 'part3') {
+    acknowledgement = `You have made an articulate case on this subject. `;
+    if (!previousExaminerSpeech.includes('government') && !previousExaminerSpeech.includes('policy')) {
+      nextQuestion = "From a broader societal perspective, what responsibility should municipal authorities shoulder to address this systematically?";
+    } else if (!previousExaminerSpeech.includes('global') && !previousExaminerSpeech.includes('international')) {
+      nextQuestion = "Do you think this issue is primarily a localized phenomenon, or does it require cohesive international cooperation to resolve?";
+    } else {
+      nextQuestion = "Some analysts contend that individual lifestyle shifts are far more effective than legislative mandates. Which side do you align with?";
+    }
   } else {
-    // Part 3 Abstract
-    const part3Responses = [
-      "You make a valid case. However, from a societal standpoint, doesn't that risk widening economic disparities?",
-      "That is a popular perception. Yet empirical data often shows unintended consequences. What safeguards should governments establish?",
-      "Interesting perspective. But isn't there a danger that technological reliance will diminish critical human judgment in that domain?",
+    acknowledgement = `Thank you for sharing those thoughts with me. `;
+    const dynamicQuestions = [
+      "To expand upon that, what factors do you think most influence people's attitudes toward this matter?",
+      "That is a noteworthy perspective. Do you believe older and younger generations view this through a different lens?",
+      "How significant of a role does modern mass media play in shaping public perception on this topic?",
+      "If you had the power to implement one major reform regarding this, what would be your initial priority?",
     ];
-    examinerSpeech = part3Responses[Math.floor(Math.random() * part3Responses.length)];
-    doubtOrChallenge = "How would you balance economic growth with ethical responsibility?";
+    const available = dynamicQuestions.filter((q) => !previousExaminerSpeech.includes(q.slice(10, 25).toLowerCase()));
+    nextQuestion = available.length > 0 ? available[0] : dynamicQuestions[0];
   }
 
-  // Prepend spoken correction directly so candidate hears it aloud
+  let finalSpeech = "";
   if (correctionNote) {
-    examinerSpeech = `${correctionNote} ${examinerSpeech}`;
+    finalSpeech = `${acknowledgement} ${correctionNote} Now, ${nextQuestion.charAt(0).toLowerCase() + nextQuestion.slice(1)}`;
+  } else {
+    finalSpeech = `${acknowledgement} ${nextQuestion}`;
   }
 
   return res.json({
     success: true,
-    examinerSpeech,
-    doubtOrChallenge,
+    examinerSpeech: finalSpeech,
+    doubtOrChallenge: nextQuestion,
     correctionNote,
-    shouldAdvance,
+    shouldAdvance: false,
   });
 });
 
@@ -173,11 +261,8 @@ app.post('/api/speaking/evaluate', async (req, res) => {
   const validAnswers = (transcripts || []).filter((t: string) => t && t.trim().length > 3);
   const totalWords = validAnswers.reduce((acc: number, t: string) => acc + t.trim().split(/\s+/).length, 0);
 
-  const client = getAIClient();
-
-  if (client && validAnswers.length > 0) {
-    try {
-      const prompt = `You are a strict Cambridge IELTS Chief Examiner evaluating a candidate's complete Speaking Test.
+  if (validAnswers.length > 0) {
+    const prompt = `You are a strict Cambridge IELTS Chief Examiner evaluating a candidate's complete Speaking Test.
 Candidate: ${name}.
 Target: Band ${candidateTarget}.
 Candidate's Spoken Responses across the test:
@@ -207,21 +292,22 @@ Return JSON format:
   "spokenAnnouncement": "A concise 2-3 sentence verbal speech in British English where you announce the final band score to the student and speak your top recommendation aloud."
 }`;
 
-      const response = await client.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.3,
-        },
-      });
+    const text = await callGeminiWithFallback({
+      contents: prompt,
+      responseMimeType: 'application/json',
+      temperature: 0.3,
+    });
 
-      const parsed = JSON.parse(response.text || '{}');
-      if (parsed.overallBand) {
-        return res.json({ success: true, ...parsed });
+    if (text) {
+      try {
+        const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.overallBand) {
+          return res.json({ success: true, ...parsed });
+        }
+      } catch (parseErr) {
+        console.warn('Gemini speaking evaluation parse fallback:', parseErr);
       }
-    } catch (err: any) {
-      console.warn('Gemini speaking evaluation fallback:', err.message);
     }
   }
 
@@ -281,11 +367,8 @@ app.post('/api/writing/evaluate', async (req, res) => {
   const { essay, promptTitle, targetScore } = req.body;
   const wordCount = (essay || '').trim().split(/\s+/).filter(Boolean).length;
 
-  const client = getAIClient();
-
-  if (client && wordCount > 20) {
-    try {
-      const prompt = `You are a Cambridge IELTS Senior Writing Examiner marking Academic Writing Task 2.
+  if (wordCount > 20) {
+    const prompt = `You are a Cambridge IELTS Senior Writing Examiner marking Academic Writing Task 2.
 Task Prompt: "${promptTitle || 'Discuss both views and give your opinion'}"
 Candidate's Target: Band ${targetScore || 7.0}
 Candidate's Essay:
@@ -315,21 +398,22 @@ Return JSON format:
   "feedback": "Comprehensive diagnostic evaluation paragraph..."
 }`;
 
-      const response = await client.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.2,
-        },
-      });
+    const text = await callGeminiWithFallback({
+      contents: prompt,
+      responseMimeType: 'application/json',
+      temperature: 0.2,
+    });
 
-      const parsed = JSON.parse(response.text || '{}');
-      if (parsed.overallBand) {
-        return res.json({ success: true, ...parsed });
+    if (text) {
+      try {
+        const clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.overallBand) {
+          return res.json({ success: true, ...parsed });
+        }
+      } catch (parseErr) {
+        console.warn('Gemini writing evaluation parse fallback:', parseErr);
       }
-    } catch (err: any) {
-      console.warn('Gemini writing evaluation fallback:', err.message);
     }
   }
 

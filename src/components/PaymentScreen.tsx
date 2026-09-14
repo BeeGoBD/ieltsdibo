@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Check, Copy, CheckCheck, ShieldCheck, AlertCircle, HelpCircle, Phone, CreditCard, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, Copy, CheckCheck, ShieldCheck, AlertCircle, HelpCircle, Phone, CreditCard, ChevronRight, Clock, AlertTriangle } from 'lucide-react';
 import { SubscriptionPlan } from '../types';
+import { sound } from '../utils/soundEffects';
 
 interface PaymentScreenProps {
   selectedPlan: SubscriptionPlan;
@@ -120,14 +121,17 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!transactionId.trim() || transactionId.trim().length < 4) {
+      sound.playError();
       setError('অনুগ্রহ করে সঠিক Transaction ID লিখুন');
       return;
     }
     if (!senderNumber.trim() || senderNumber.trim().length < 10) {
+      sound.playError();
       setError('যে নম্বর থেকে টাকা পাঠিয়েছেন তা লিখুন');
       return;
     }
 
+    sound.playSuccess();
     setError('');
     onPaymentSubmit({
       method: selectedMethod,
@@ -137,11 +141,14 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50/40 flex flex-col justify-between text-slate-900 px-4 py-6 selection:bg-rose-500 selection:text-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50/40 flex flex-col justify-between text-slate-900 px-3 sm:px-4 py-4 sm:py-6 selection:bg-rose-500 selection:text-white">
       {/* Header */}
-      <header className="max-w-md mx-auto w-full flex items-center justify-between pt-2 pb-3">
+      <header className="max-w-md mx-auto w-full flex items-center justify-between pt-1 pb-2">
         <button
-          onClick={onBack}
+          onClick={() => {
+            sound.playClick();
+            onBack();
+          }}
           className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           title="ফিরে যান"
         >
@@ -156,9 +163,24 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
       </header>
 
       {/* Main Container */}
-      <main className="max-w-md mx-auto w-full flex-1 flex flex-col justify-start">
+      <main className="max-w-md mx-auto w-full flex-1 flex flex-col justify-start pb-6">
+        {/* Unverified Account Alert & Permissions Warning */}
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3 mb-3 text-xs shadow-xs">
+          <div className="flex items-start gap-2 text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-extrabold text-[11px] sm:text-xs text-amber-950 block">
+                ⚠️ অ্যাকাউন্ট স্ট্যাটাস: আন-ভেরিফাইড (Unverified Notice)
+              </span>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                আপনার অ্যাকাউন্টটি বর্তমানে আন-ভেরিফাইড অবস্থায় রয়েছে। শুধুমাত্র ভেরিফাইড সাবস্ক্রাইবারদের প্ল্যাটফর্মের সকল মক টেস্ট, স্পিকিং AI এবং সার্টিফিকেট ব্যবহারের পারমিশন দেওয়া হবে।
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Top Summary Banner */}
-        <div className="bg-[#0A2540] text-white p-4 rounded-3xl mb-4 shadow-md flex items-center justify-between">
+        <div className="bg-[#0A2540] text-white p-3.5 sm:p-4 rounded-3xl mb-3 shadow-md flex items-center justify-between">
           <div>
             <span className="text-[11px] text-sky-200">নির্বাচিত প্ল্যান</span>
             <h3 className="text-base font-bold text-white">{selectedPlan.durationText}</h3>
@@ -172,9 +194,22 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
           </div>
         </div>
 
+        {/* Payment Processing Timeline Notice */}
+        <div className="bg-sky-50 border border-sky-200 rounded-2xl p-3 mb-3 text-xs flex items-start gap-2 text-sky-950">
+          <Clock className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold text-[11px] sm:text-xs text-sky-900 block">
+              ⏳ পেমেন্ট প্রসেসিং নোটিশ (10-30 Min Verification)
+            </span>
+            <p className="text-[11px] text-sky-800 leading-relaxed mt-0.5">
+              টাকা সেন্ড মানি করে TrxID সাবমিট করার পর আমাদের একাউন্টস টিম ১০-৩০ মিনিটের মধ্যে স্বয়ংক্রিয়ভাবে পেমেন্ট যাচাই করে আপনার অ্যাকাউন্টে পেইড মেম্বারশিপ ও পরীক্ষার অনুমতি সক্রিয় করে দেবে।
+            </p>
+          </div>
+        </div>
+
         {/* Heading */}
         <div className="text-center mb-3">
-          <h2 className="text-xl sm:text-2xl font-extrabold text-[#0A2540] tracking-tight">
+          <h2 className="text-lg sm:text-xl font-extrabold text-[#0A2540] tracking-tight">
             আপনার পেমেন্ট পদ্ধতি নির্বাচন করুন
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">

@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, Check, Sparkles, Star, Zap, Clock, ShieldCheck, Headphones } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles, Star, Zap, Clock, ShieldCheck, Headphones, AlertTriangle, Lock } from 'lucide-react';
 import { SubscriptionPlan } from '../types';
+import { sound } from '../utils/soundEffects';
 
 export const PLANS: SubscriptionPlan[] = [
   {
@@ -118,7 +119,10 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({
               <motion.div
                 key={plan.id}
                 whileTap={{ scale: 0.99 }}
-                onClick={() => onSelectPlan(plan.id)}
+                onClick={() => {
+                  sound.playSelect();
+                  onSelectPlan(plan.id);
+                }}
                 className={`relative rounded-3xl p-4 sm:p-5 transition-all cursor-pointer border-2 ${
                   plan.isPopular
                     ? isSelected
@@ -216,21 +220,42 @@ export const PricingScreen: React.FC<PricingScreenProps> = ({
             );
           })}
         </div>
+
+        {/* Verification & Subscriber-Only Permissions Warning Notice */}
+        <div className="mt-4 bg-amber-50 border border-amber-300/80 rounded-2xl p-3.5 sm:p-4 text-xs shadow-xs">
+          <div className="flex items-start gap-2.5 text-amber-900">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="font-extrabold text-xs text-amber-950">
+                অ্যাকাউন্ট ভেরিফিকেশন ও সাবস্ক্রাইবার পারমিশন নোটিশ
+              </h4>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                আপনার অ্যাকাউন্টটি বর্তমানে ভেরিফিকেশনহীন অবস্থায় রয়েছে। শুধুমাত্র সাবস্ক্রিপশন ফি পরিশোধকারী ও অনুমোদিত শিক্ষার্থীদের ক্যামব্রিজ মক টেস্ট, এআই স্পিকিং ইন্টারভিউ এবং অফিসিয়াল টিআরএফ সার্টিফিকেটের পারমিশন প্রদান করা হবে।
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="max-w-md mx-auto w-full pt-4 pb-2 border-t border-slate-200/80 flex items-center justify-between gap-4 z-30 bg-white/80 backdrop-blur-md px-2 rounded-2xl">
+      {/* Footer with touch-friendly responsive button */}
+      <footer className="max-w-md mx-auto w-full pt-3 pb-3 border-t border-slate-200/80 flex items-center justify-between gap-3 z-30 bg-white/95 backdrop-blur-md px-3 rounded-2xl mt-3 shadow-md">
         <button
-          onClick={onBack}
-          className="px-5 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+          onClick={() => {
+            sound.playClick();
+            onBack();
+          }}
+          className="px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>ব্যাক</span>
         </button>
 
         <button
-          onClick={onNext}
-          className="px-7 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer bg-[#FF5A36] hover:bg-[#EA580C] text-white shadow-orange-600/30 scale-100 active:scale-95 border-b-4 border-[#C2410C]"
+          onClick={() => {
+            sound.playSuccess();
+            onNext();
+          }}
+          className="flex-1 max-w-[240px] py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer bg-[#FF5A36] hover:bg-[#EA580C] text-white shadow-orange-600/30 scale-100 active:scale-95 border-b-4 border-[#C2410C]"
         >
           <span>পেমেন্ট করুন (৳{selectedPlan.price})</span>
           <ArrowRight className="w-4 h-4" />
