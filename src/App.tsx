@@ -26,44 +26,52 @@ import { ExamPageView } from './components/ExamPageView';
 import { SpeakingExamPageView } from './components/SpeakingExamPageView';
 import { FullMockExamView } from './components/FullMockExamView';
 
-// Fresh Start: Dedicated Student Account with active 499 Subscription Plan
-const FRESH_STUDENT_USER: UserProfile = {
-  id: 'USR-7001',
-  name: 'Jobaerul Alam',
-  email: 'jobaerulalam2026@gmail.com',
-  phone: '01712345678',
-  password: 'Password123!',
+// Default Blank Student for New Registration
+const createBlankStudent = (): UserProfile => ({
+  id: '',
+  name: '',
+  email: '',
+  phone: '',
+  password: '',
   targetScore: '7.5',
   weakness: 'writing',
   subscriptionPlanId: 'plan_30days',
   subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
   subscriptionDays: 30,
-  paymentStatus: 'approved',
-  approvalDate: new Date().toISOString(),
-  expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  paymentMethod: 'bKash',
-  transactionId: 'DIBO499TRX',
-  senderNumber: '01712345678',
-  rollNumber: 'ID-2026-7001',
-  referralCode: 'DIBO7001',
+  paymentStatus: 'pending',
+  rollNumber: '',
+  referralCode: '',
   walletBalance: 0,
   totalExamsQuota: 300,
+  availableSessions: 10,
+  dailySessionsQuota: 10,
   examsCompleted: 0,
   isRestricted: false,
   moduleScores: {},
-};
+});
 
-// Clean, unpolluted data arrays: no old test records, no mock tickets, no mock withdrawals
-const INITIAL_USERS: UserProfile[] = [FRESH_STUDENT_USER];
+// Clean initial data - all previous mock/demo accounts and history wiped fresh
+const INITIAL_USERS: UserProfile[] = [];
 const INITIAL_EXAMS: ExamRecord[] = [];
 const INITIAL_WITHDRAWALS: WithdrawRecord[] = [];
 const INITIAL_TICKETS: SupportTicket[] = [];
 
-// Clean legacy keys if any exist in the browser
+// Clean legacy and mock demo keys if present in browser
 try {
   ['ielts_dao_step', 'ielts_dao_users', 'ielts_dao_current_user', 'ielts_dao_exams', 'ielts_dao_withdrawals', 'ielts_dao_tickets'].forEach(
     (k) => localStorage.removeItem(k)
   );
+  // Clear old mock user USR-7001
+  const currentUserRaw = localStorage.getItem('ielts_dibo_v2_current_user');
+  if (currentUserRaw && currentUserRaw.includes('USR-7001')) {
+    localStorage.removeItem('ielts_dibo_v2_current_user');
+  }
+  const usersRaw = localStorage.getItem('ielts_dibo_v2_users');
+  if (usersRaw && usersRaw.includes('USR-7001')) {
+    const parsed = JSON.parse(usersRaw);
+    const filtered = parsed.filter((u: any) => u.id !== 'USR-7001' && u.email !== 'jobaerulalam2026@gmail.com');
+    localStorage.setItem('ielts_dibo_v2_users', JSON.stringify(filtered));
+  }
 } catch (e) {}
 
 export default function App() {
@@ -74,12 +82,23 @@ export default function App() {
 
   const [lang, setLang] = useState<AppLanguage>('bn');
 
+  // Registration draft (NO AUTOFILL - completely clean inputs)
+  const [signupDraft, setSignupDraft] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    referralCode: '',
+  });
+
   // Multi-user Database
   const [users, setUsers] = useState<UserProfile[]>(() => {
     const saved = localStorage.getItem('ielts_dibo_v2_users');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((u: any) => u.id !== 'USR-7001');
       } catch (e) {}
     }
     return INITIAL_USERS;
@@ -90,14 +109,21 @@ export default function App() {
     const saved = localStorage.getItem('ielts_dibo_v2_current_user');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id !== 'USR-7001') return parsed;
       } catch (e) {}
     }
-    return FRESH_STUDENT_USER;
+    return createBlankStudent();
   });
 
-  // Exams of current user
+  // Permanent unified exam history of current user (never cleared by reset)
   const [exams, setExams] = useState<ExamRecord[]>(() => {
+    const savedPerm = localStorage.getItem('ielts_dibo_v2_permanent_history');
+    if (savedPerm) {
+      try {
+        return JSON.parse(savedPerm);
+      } catch (e) {}
+    }
     const saved = localStorage.getItem('ielts_dibo_v2_exams');
     if (saved) {
       try {
@@ -192,7 +218,17 @@ export default function App() {
 
   // Handler: Exam completed
   const handleExamComplete = (record: ExamRecord) => {
-    setExams((prev) => [record, ...prev]);
+    const newRecord: ExamRecord = {
+      ...record,
+      id: record.id || `exam_${Date.now()}`,
+      date: record.date || new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: record.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updated = [newRecord, ...exams];
+    setExams(updated);
+    localStorage.setItem('ielts_dibo_v2_exams', JSON.stringify(updated));
+    localStorage.setItem('ielts_dibo_v2_permanent_history', JSON.stringify(updated));
 
     // Record module score to unlock big bold score & retake button
     const updatedModuleScores = {
@@ -201,8 +237,27 @@ export default function App() {
     };
 
     handleUpdateCurrentUser({
-      examsCompleted: currentUser.examsCompleted + 1,
       moduleScores: updatedModuleScores,
+    });
+  };
+
+  // Handler: Reset Exams & Scores (Candidate can reset module progress)
+  // Per requirement: 9 taka plan is NOT applicable for reset.
+  // Other plans deduct 1 session and preserve permanent exam history.
+  const handleResetExams = () => {
+    if (currentUser.subscriptionPlanId === 'plan_1day' || currentUser.subscriptionPlanTitle?.includes('৯')) {
+      alert(lang === 'bn' ? '৯ টাকার সাবস্ক্রিপশনে এক্সাম রিসেট প্রযোজ্য নয়।' : 'Exam reset is not available on the 9 Taka plan.');
+      return;
+    }
+
+    if ((currentUser.availableSessions || 0) <= 0) {
+      alert(lang === 'bn' ? 'আপনার কোনো অবশিষ্ট সেশন নেই। রিসেট করা সম্ভব নয়।' : 'No sessions available. Cannot reset exam.');
+      return;
+    }
+
+    handleUpdateCurrentUser({
+      availableSessions: Math.max(0, (currentUser.availableSessions || 1) - 1),
+      moduleScores: {},
     });
   };
 
@@ -292,29 +347,52 @@ export default function App() {
     case 'signup':
       return (
         <SignupScreen
-          formData={{
-            name: currentUser.name,
-            email: currentUser.email,
-            phone: currentUser.phone,
-            password: currentUser.password || 'Password123!',
-            confirmPassword: currentUser.password || 'Password123!',
-            referralCode: currentUser.referredBy || '',
-          }}
+          formData={signupDraft}
           existingUsers={users}
           lang={lang}
           onUpdateFormData={(data) => {
-            handleUpdateCurrentUser(data);
+            setSignupDraft((prev) => ({ ...prev, ...data }));
           }}
           onBack={() => setCurrentStep('weakness')}
           onNext={() => {
-            // Register or update user in database
+            // Register or update user in database with strict unique credentials
+            const emailNorm = signupDraft.email.trim().toLowerCase();
+            const phoneNorm = signupDraft.phone.trim();
+            const existing = users.find(
+              (u) => u.email.toLowerCase() === emailNorm || u.phone === phoneNorm
+            );
+            if (existing) {
+              alert(
+                lang === 'bn'
+                  ? 'এই জিমেইল অথবা ফোন নম্বর দিয়ে ইতিপূর্বে একাউন্ট খোলা হয়েছে। অনুগ্রহ করে লগইন করুন।'
+                  : 'An account already exists with this Gmail or phone number. Please log in.'
+              );
+              setCurrentStep('login');
+              return;
+            }
+
             const newUser: UserProfile = {
-              ...currentUser,
               id: 'USR-' + Math.floor(1000 + Math.random() * 9000),
+              name: signupDraft.name.trim(),
+              email: emailNorm,
+              phone: phoneNorm,
+              password: signupDraft.password.trim(),
+              targetScore: currentUser.targetScore || '7.5',
+              weakness: currentUser.weakness || 'writing',
+              subscriptionPlanId: 'plan_30days',
+              subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
+              subscriptionDays: 30,
+              paymentStatus: 'pending',
               rollNumber: 'ID-2026-' + Math.floor(1000 + Math.random() * 9000),
               referralCode: 'IELTS' + Math.floor(1000 + Math.random() * 9000),
-              paymentStatus: 'pending',
+              referredBy: signupDraft.referralCode.trim(),
               walletBalance: 0,
+              totalExamsQuota: 300,
+              availableSessions: 10,
+              dailySessionsQuota: 10,
+              examsCompleted: 0,
+              isRestricted: false,
+              moduleScores: {},
             };
             setUsers((prev) => [newUser, ...prev]);
             setCurrentUser(newUser);
@@ -333,11 +411,14 @@ export default function App() {
             const plan = PLANS.find((p) => p.id === planId);
             if (plan) {
               const days = plan.id === 'plan_30days' ? 30 : plan.id === 'plan_7days' ? 7 : plan.id === 'plan_3days' ? 3 : 1;
+              const sessions = plan.id === 'plan_30days' ? 10 : plan.id === 'plan_7days' ? 5 : plan.id === 'plan_3days' ? 3 : 1;
               handleUpdateCurrentUser({
                 subscriptionPlanId: plan.id,
                 subscriptionPlanTitle: `${plan.durationText} (${plan.price} টাকা)`,
                 subscriptionDays: days,
                 totalExamsQuota: plan.totalTests,
+                availableSessions: sessions,
+                dailySessionsQuota: sessions,
               });
             }
           }}
@@ -353,11 +434,18 @@ export default function App() {
         <PaymentScreen
           selectedPlan={chosenPlan}
           onPaymentSubmit={(paymentData) => {
+            const sessions = chosenPlan.id === 'plan_30days' ? 10 : chosenPlan.id === 'plan_7days' ? 5 : chosenPlan.id === 'plan_3days' ? 3 : 1;
+            const days = chosenPlan.id === 'plan_30days' ? 30 : chosenPlan.id === 'plan_7days' ? 7 : chosenPlan.id === 'plan_3days' ? 3 : 1;
+
             handleUpdateCurrentUser({
-              paymentStatus: 'pending',
+              paymentStatus: 'approved',
+              approvalDate: new Date().toISOString(),
+              expiryDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
               paymentMethod: paymentData.method,
               transactionId: paymentData.transactionId,
               senderNumber: paymentData.senderNumber,
+              availableSessions: sessions,
+              dailySessionsQuota: sessions,
             });
             setCurrentStep('dashboard');
           }}
@@ -377,6 +465,7 @@ export default function App() {
           onUpdateUser={handleUpdateCurrentUser}
           onAddExamRecord={handleExamComplete}
           onNavigateToPage={handleNavigateToPage}
+          onResetExams={handleResetExams}
           onToggleLanguage={() => setLang((prev) => (prev === 'bn' ? 'en' : 'bn'))}
           onResetApp={handleResetApp}
         />

@@ -42,19 +42,19 @@ You are conducting an official, high-fidelity IELTS Speaking Test.
 Candidate's Target Band: ${targetBand}.
 Current Part: ${stage} (Part 1 = Interview & everyday familiar topics; Part 2 = Individual long turn follow-up; Part 3 = Two-way analytical discussion).
 
-CRITICAL EXAMINER BEHAVIOR:
-1. Act like a real human Cambridge examiner: polite, articulate, academic, but rigorous.
-2. DO NOT just accept candidate answers passively. Actively LISTEN to what they said.
-3. If they make a questionable claim, EXPRESS SKEPTICISM OR DOUBT ("That is an interesting view, but wouldn't some critics argue that...?", "Could you provide a concrete example to substantiate that?").
-4. If their answer is too brief or evasive, push them to elaborate ("Why specifically do you believe that?", "Could you expand on how that affects daily life?").
-5. If they made a noticeable grammatical or lexical mistake in their response, provide a brief, constructive examiner note in the "correctionNote" field (e.g., "Note: Say 'I have been living' instead of 'I am living since 3 years'").
-6. Keep your spoken response focused, natural, and under 60 words so the dialogue flows smoothly.
+CRITICAL EXAMINER BEHAVIOR FOR VOICE-ONLY INTERVIEW:
+1. Speak ONLY in English. The user will NOT see any text on screen, so everything must be spoken naturally aloud.
+2. Act like a real human Cambridge examiner: polite, articulate, academic, but honest and rigorous with scoring.
+3. Actively LISTEN to what the student said.
+4. If they make a grammatical mistake, wrong collocation, or weak structure, include a brief, courteous spoken correction and suggestion directly in your spoken reply before moving to the next question (e.g., "Well noted. Just remember to say 'I agree' rather than 'I am agree'. Now, moving on to...").
+5. If their answer is too brief or lacks substance, challenge them to elaborate with an example.
+6. Keep your spoken response focused, conversational, and under 50-60 words so the speech synthesis sounds natural.
 7. Return your response in clean JSON format:
 {
-  "examinerSpeech": "The exact words spoken aloud by the examiner to the candidate.",
-  "doubtOrChallenge": "A probing doubt or follow-up question that tests the candidate's depth of thought.",
-  "correctionNote": "Optional brief linguistic fix or coaching tip based on what the candidate just said (or null if perfect).",
-  "shouldAdvance": false // true only if this part of the exam has had enough questions and should transition to next part
+  "examinerSpeech": "The exact words spoken aloud by the examiner in English, including any spoken mistake correction, feedback, and the next question.",
+  "doubtOrChallenge": "A probing doubt or follow-up question.",
+  "correctionNote": "Brief note of correction if applicable.",
+  "shouldAdvance": false
 }`;
 
   const client = getAIClient();
@@ -69,7 +69,7 @@ LATEST CANDIDATE RESPONSE: "${userResponse || '(Candidate was silent or gave no 
 Generate your next examiner response in JSON:`;
 
       const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: {
           systemInstruction,
@@ -147,6 +147,11 @@ Generate your next examiner response in JSON:`;
     doubtOrChallenge = "How would you balance economic growth with ethical responsibility?";
   }
 
+  // Prepend spoken correction directly so candidate hears it aloud
+  if (correctionNote) {
+    examinerSpeech = `${correctionNote} ${examinerSpeech}`;
+  }
+
   return res.json({
     success: true,
     examinerSpeech,
@@ -161,8 +166,9 @@ Generate your next examiner response in JSON:`;
  * Real Cambridge Rubric (FC, LR, GRA, PR)
  */
 app.post('/api/speaking/evaluate', async (req, res) => {
-  const { transcripts, targetScore } = req.body;
+  const { transcripts, targetScore, studentName } = req.body;
   const candidateTarget = parseFloat(targetScore) || 7.5;
+  const name = studentName || 'Candidate';
 
   const validAnswers = (transcripts || []).filter((t: string) => t && t.trim().length > 3);
   const totalWords = validAnswers.reduce((acc: number, t: string) => acc + t.trim().split(/\s+/).length, 0);
@@ -172,7 +178,8 @@ app.post('/api/speaking/evaluate', async (req, res) => {
   if (client && validAnswers.length > 0) {
     try {
       const prompt = `You are a strict Cambridge IELTS Chief Examiner evaluating a candidate's complete Speaking Test.
-Candidate's Target: Band ${candidateTarget}.
+Candidate: ${name}.
+Target: Band ${candidateTarget}.
 Candidate's Spoken Responses across the test:
 ${validAnswers.map((a: string, i: number) => `Response ${i + 1} (${a.split(/\s+/).length} words): "${a}"`).join('\n\n')}
 
@@ -185,7 +192,7 @@ Evaluate strictly using Cambridge criteria:
 STRICT RULE:
 - If the candidate gave very short, silent, or repetitive answers (total words < 50), do NOT give high ratings! Award Band 4.0 - 5.0.
 - If the candidate answered comprehensively with idiomatic phrases and complex subordinate clauses, award Band 7.0 - 8.5.
-- Be genuine and rigorous.
+- Be honest and rigorous.
 
 Return JSON format:
 {
@@ -196,11 +203,12 @@ Return JSON format:
   "prScore": 7.5,
   "strengths": ["Strengths demonstrated..."],
   "weaknesses": ["Key areas to rectify..."],
-  "examinerSummary": "Detailed academic paragraph summarizing the candidate's performance."
+  "examinerSummary": "Detailed academic paragraph summarizing the candidate's performance.",
+  "spokenAnnouncement": "A concise 2-3 sentence verbal speech in British English where you announce the final band score to the student and speak your top recommendation aloud."
 }`;
 
       const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
@@ -262,6 +270,7 @@ Return JSON format:
       'Incorporate a broader array of less-common collocations and idiomatic phrases',
     ],
     examinerSummary: `The candidate achieved an overall Speaking Band of ${finalBand.toFixed(1)}. Total spoken output comprised ${totalWords} words across ${validAnswers.length} response turn(s). Performance reflects Cambridge B2/C1 competency benchmarks with clear communicative intent.`,
+    spokenAnnouncement: `Thank you, ${name}. Your assessment is complete. Your overall Cambridge Speaking score is Band ${finalBand.toFixed(1)}. My recommendation is to ${totalWords < 150 ? 'expand your answers more thoroughly with concrete reasons and examples' : 'continue refining your complex sentence clauses and academic collocations'}. Well done.`,
   });
 });
 
@@ -307,7 +316,7 @@ Return JSON format:
 }`;
 
       const response = await client.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',

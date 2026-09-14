@@ -59,6 +59,8 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
   const [activeTab, setActiveTab] = useState<'passage' | 'questions'>('passage');
   const [showTranscript, setShowTranscript] = useState(false);
   const [fontSize, setFontSize] = useState<'sm' | 'base' | 'lg'>('base');
+  const [isShiftingQuestion, setIsShiftingQuestion] = useState(false);
+  const [showFullPassage, setShowFullPassage] = useState(false);
 
   // Audio Playback state for Listening
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -249,7 +251,7 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center">
-      <div className="w-full max-w-5xl min-h-screen bg-white flex flex-col shadow-xl">
+      <div className="w-full max-w-6xl xl:max-w-7xl min-h-screen bg-white flex flex-col shadow-xl">
         {/* Top Official Exam Header */}
         <header className="sticky top-0 z-30 bg-[#0A2540] text-white px-4 py-3 shadow-md flex items-center justify-between border-b border-sky-900">
           <div className="flex items-center gap-3">
@@ -300,222 +302,319 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
           {!isFinished ? (
             <div className="flex-1 flex flex-col overflow-y-auto">
               {/* 1. IELTS READING MODE */}
-              {moduleType === 'reading' && (
-                <div className="flex-1 flex flex-col md:flex-row h-full">
-                  {/* Mobile switcher tab */}
-                  <div className="md:hidden flex border-b border-slate-200 bg-slate-50 text-xs font-bold">
-                    <button
-                      onClick={() => setActiveTab('passage')}
-                      className={`flex-1 py-2.5 text-center border-b-2 ${
-                        activeTab === 'passage'
-                          ? 'border-[#0A2540] text-[#0A2540] bg-white'
-                          : 'border-transparent text-slate-500'
-                      }`}
-                    >
-                      📖 {lang === 'bn' ? 'প্যাসেজ পড়ুন' : 'Reading Passage'}
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('questions')}
-                      className={`flex-1 py-2.5 text-center border-b-2 ${
-                        activeTab === 'questions'
-                          ? 'border-[#0A2540] text-[#0A2540] bg-white'
-                          : 'border-transparent text-slate-500'
-                      }`}
-                    >
-                      ✏️ {lang === 'bn' ? 'প্রশ্নসমূহ' : 'Questions'} ({Object.keys(selectedAnswers).length}/{currentQuestionsList.length})
-                    </button>
-                  </div>
+              {moduleType === 'reading' && (() => {
+                const targetLetter = ('paragraphRef' in currentQ && currentQ?.paragraphRef)
+                  ? currentQ.paragraphRef.replace(/[^A-Za-z]/g, '').trim().toUpperCase()
+                  : '';
+                const relevantParagraph = readingData.paragraphs.find((p) => p.letter === targetLetter) || readingData.paragraphs[0];
+                const allQuestionsAnswered = currentQuestionsList.length > 0 && Object.keys(selectedAnswers).length === currentQuestionsList.length;
 
-                  {/* Left Column: Full Reading Passage */}
-                  <div
-                    className={`w-full md:w-1/2 p-5 border-r border-slate-200 overflow-y-auto bg-slate-50/50 ${
-                      activeTab === 'questions' ? 'hidden md:block' : 'block'
-                    }`}
-                  >
-                    <div className="max-w-xl mx-auto space-y-4">
-                      {/* Passage Header */}
-                      <div className="border-b border-slate-200 pb-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                            {readingData.passageCategory}
-                          </span>
-                          <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                            <span>Font:</span>
-                            {(['sm', 'base', 'lg'] as const).map((sz) => (
-                              <button
-                                key={sz}
-                                onClick={() => setFontSize(sz)}
-                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                  fontSize === sz ? 'bg-[#0A2540] text-white' : 'bg-slate-200 text-slate-700'
-                                }`}
-                              >
-                                {sz.toUpperCase()}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <h2 className="text-lg md:text-xl font-black text-[#0A2540] font-serif leading-tight">
-                          {readingData.passageTitle}
-                        </h2>
-                        <p className="text-xs text-slate-600 mt-1 italic">
-                          {readingData.passageSubtitle}
-                        </p>
-                      </div>
+                const handleSelectReadingOption = (opt: string) => {
+                  setSelectedAnswers((prev) => ({
+                    ...prev,
+                    [currentQuestion]: opt,
+                  }));
+                  setIsShiftingQuestion(true);
+                  setTimeout(() => {
+                    const total = currentQuestionsList.length;
+                    let nextIdx = -1;
+                    // Look forward from current question
+                    for (let i = currentQuestion + 1; i < total; i++) {
+                      if (selectedAnswers[i] === undefined && i !== currentQuestion) {
+                        nextIdx = i;
+                        break;
+                      }
+                    }
+                    // Look from start if needed
+                    if (nextIdx === -1) {
+                      for (let i = 0; i < currentQuestion; i++) {
+                        if (selectedAnswers[i] === undefined) {
+                          nextIdx = i;
+                          break;
+                        }
+                      }
+                    }
+                    if (nextIdx !== -1) {
+                      setCurrentQuestion(nextIdx);
+                    } else if (currentQuestion < total - 1) {
+                      setCurrentQuestion(currentQuestion + 1);
+                    }
+                    setIsShiftingQuestion(false);
+                  }, 220);
+                };
 
-                      {/* Paragraphs with Letter Markers */}
-                      <div
-                        className={`space-y-4 text-slate-800 leading-relaxed font-serif ${
-                          fontSize === 'sm' ? 'text-xs' : fontSize === 'lg' ? 'text-base' : 'text-sm'
+                return (
+                  <div className="flex-1 flex flex-col md:flex-row h-full">
+                    {/* Mobile switcher tab */}
+                    <div className="md:hidden flex border-b border-slate-200 bg-slate-50 text-xs font-bold">
+                      <button
+                        onClick={() => setActiveTab('passage')}
+                        className={`flex-1 py-2.5 text-center border-b-2 ${
+                          activeTab === 'passage'
+                            ? 'border-[#0A2540] text-[#0A2540] bg-white'
+                            : 'border-transparent text-slate-500'
                         }`}
                       >
-                        {readingData.paragraphs.map((para) => (
-                          <div
-                            key={para.letter}
-                            id={`para-${para.letter}`}
-                            className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs relative"
-                          >
-                            <span className="inline-block px-2 py-0.5 bg-[#0A2540] text-white rounded-md text-[11px] font-bold font-sans mr-2 align-middle">
-                              [{para.letter}]
-                            </span>
-                            <span>{para.text}</span>
-                          </div>
-                        ))}
-                      </div>
+                        📖 {lang === 'bn' ? 'প্যাসেজ অনুচ্ছেদ' : 'Reading Section'}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('questions')}
+                        className={`flex-1 py-2.5 text-center border-b-2 ${
+                          activeTab === 'questions'
+                            ? 'border-[#0A2540] text-[#0A2540] bg-white'
+                            : 'border-transparent text-slate-500'
+                        }`}
+                      >
+                        ✏️ {lang === 'bn' ? 'প্রশ্ন' : 'Question'} ({Object.keys(selectedAnswers).length}/{currentQuestionsList.length})
+                      </button>
                     </div>
-                  </div>
 
-                  {/* Right Column: Question Panel */}
-                  <div
-                    className={`w-full md:w-1/2 p-5 flex flex-col justify-between overflow-y-auto bg-white ${
-                      activeTab === 'passage' ? 'hidden md:flex' : 'flex'
-                    }`}
-                  >
-                    <div className="max-w-xl mx-auto w-full space-y-4">
-                      {/* Question Palette / Progress */}
-                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
-                          <span>
-                            {lang === 'bn' ? 'প্রশ্ন প্যালেট' : 'Question Palette'} ({Object.keys(selectedAnswers).length}/{currentQuestionsList.length} answered)
-                          </span>
-                          <span className="text-[11px] text-slate-500 font-mono">
-                            Target: Band {user.targetScore}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-10 gap-1.5">
-                          {currentQuestionsList.map((_, idx) => {
-                            const isAnswered = selectedAnswers[idx] !== undefined;
-                            const isCurrent = currentQuestion === idx;
-                            return (
-                              <button
-                                key={idx}
-                                onClick={() => setCurrentQuestion(idx)}
-                                className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                                  isCurrent
-                                    ? 'bg-[#0A2540] text-white ring-2 ring-sky-400'
-                                    : isAnswered
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
-                                }`}
-                              >
-                                {idx + 1}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Active Question Stem */}
-                      {currentQ && (
-                        <div className="p-4 bg-sky-50/60 rounded-2xl border border-sky-200 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-[#0A2540]">
-                              Question {currentQuestion + 1} of {currentQuestionsList.length}
+                    {/* Left Column: Focused Paragraph or Full Passage */}
+                    <div
+                      className={`w-full md:w-1/2 p-5 border-r border-slate-200 overflow-y-auto bg-slate-50/50 ${
+                        activeTab === 'questions' ? 'hidden md:block' : 'block'
+                      }`}
+                    >
+                      <div className="max-w-xl mx-auto space-y-4">
+                        {/* Passage Header */}
+                        <div className="border-b border-slate-200 pb-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                              {readingData.passageCategory}
                             </span>
-                            {'paragraphRef' in currentQ && (
-                              <span className="text-[10px] font-bold bg-sky-200 text-sky-950 px-2 py-0.5 rounded-full">
-                                {currentQ.paragraphRef}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                              <button
+                                onClick={() => setShowFullPassage(!showFullPassage)}
+                                className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 hover:bg-sky-200 text-sky-800 transition-colors cursor-pointer"
+                              >
+                                {showFullPassage ? '🎯 Focused Mode' : '📖 All Paragraphs'}
+                              </button>
+                              <div className="flex items-center gap-1">
+                                {(['sm', 'base', 'lg'] as const).map((sz) => (
+                                  <button
+                                    key={sz}
+                                    onClick={() => setFontSize(sz)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      fontSize === sz ? 'bg-[#0A2540] text-white' : 'bg-slate-200 text-slate-700'
+                                    }`}
+                                  >
+                                    {sz.toUpperCase()}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm font-bold text-slate-900 leading-relaxed font-sans">
-                            {currentQ.question}
+                          <h2 className="text-lg md:text-xl font-black text-[#0A2540] font-serif leading-tight">
+                            {readingData.passageTitle}
+                          </h2>
+                          <p className="text-xs text-slate-600 mt-1 italic">
+                            {readingData.passageSubtitle}
                           </p>
                         </div>
-                      )}
 
-                      {/* Options */}
-                      <div className="space-y-2">
-                        {currentQ?.options.map((opt, i) => {
-                          const isSelected = selectedAnswers[currentQuestion] === opt;
-                          return (
-                            <button
-                              key={opt}
-                              onClick={() => {
-                                setSelectedAnswers({
-                                  ...selectedAnswers,
-                                  [currentQuestion]: opt,
-                                });
-                              }}
-                              className={`w-full p-3 rounded-2xl border text-left text-xs sm:text-sm font-medium transition-all cursor-pointer flex items-start gap-3 ${
-                                isSelected
-                                  ? 'bg-sky-50 border-[#0A2540] text-[#0A2540] font-bold shadow-xs ring-1 ring-[#0A2540]'
-                                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                        {/* Mode 1: Progressive Focused Paragraph (User Request: Answering question removes answered paragraph & shifts next to top) */}
+                        {!showFullPassage ? (
+                          <div
+                            className={`transition-all duration-200 ${
+                              isShiftingQuestion ? 'opacity-30 translate-y-2' : 'opacity-100 translate-y-0'
+                            }`}
+                          >
+                            <div className="bg-sky-50/80 border border-sky-200 rounded-2xl p-3 mb-3 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 bg-[#0A2540] text-white rounded-md text-xs font-bold">
+                                  Paragraph {relevantParagraph.letter}
+                                </span>
+                                <span className="text-xs font-bold text-[#0A2540]">
+                                  Relevant to Question {currentQuestion + 1}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-mono">
+                                Auto-advancing
+                              </span>
+                            </div>
+
+                            <div
+                              className={`p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3 font-serif leading-relaxed text-slate-800 ${
+                                fontSize === 'sm' ? 'text-xs' : fontSize === 'lg' ? 'text-base' : 'text-sm'
                               }`}
                             >
-                              <span
-                                className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                                  isSelected
-                                    ? 'bg-[#0A2540] text-white'
-                                    : 'bg-slate-100 text-slate-600'
+                              <p>{relevantParagraph.text}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Mode 2: Full Passage display if student toggles all paragraphs */
+                          <div
+                            className={`space-y-4 text-slate-800 leading-relaxed font-serif ${
+                              fontSize === 'sm' ? 'text-xs' : fontSize === 'lg' ? 'text-base' : 'text-sm'
+                            }`}
+                          >
+                            {readingData.paragraphs.map((para) => (
+                              <div
+                                key={para.letter}
+                                id={`para-${para.letter}`}
+                                className={`p-3.5 bg-white rounded-2xl border shadow-xs relative ${
+                                  para.letter === targetLetter
+                                    ? 'border-sky-500 ring-2 ring-sky-200'
+                                    : 'border-slate-200'
                                 }`}
                               >
-                                {String.fromCharCode(65 + i)}
-                              </span>
-                              <span className="pt-0.5 flex-1">{opt}</span>
-                            </button>
-                          );
-                        })}
+                                <span className="inline-block px-2 py-0.5 bg-[#0A2540] text-white rounded-md text-[11px] font-bold font-sans mr-2 align-middle">
+                                  [{para.letter}]
+                                </span>
+                                <span>{para.text}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Navigation Buttons */}
-                    <div className="pt-6 border-t border-slate-200 flex items-center justify-between gap-3">
-                      <button
-                        disabled={currentQuestion === 0}
-                        onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
-                        className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                        <span>{lang === 'bn' ? 'আগেরটি' : 'Previous'}</span>
-                      </button>
+                    {/* Right Column: Question Panel (Shifts to next question automatically when answered) */}
+                    <div
+                      className={`w-full md:w-1/2 p-5 flex flex-col justify-between overflow-y-auto bg-white ${
+                        activeTab === 'passage' ? 'hidden md:flex' : 'flex'
+                      }`}
+                    >
+                      <div className="max-w-xl mx-auto w-full space-y-4">
+                        {/* Question Palette / Progress */}
+                        <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-2">
+                            <span>
+                              {lang === 'bn' ? 'প্রশ্ন প্যালেট' : 'Question Palette'} ({Object.keys(selectedAnswers).length}/{currentQuestionsList.length} answered)
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              Target: Band {user.targetScore}
+                            </span>
+                          </div>
 
-                      {currentQuestion < currentQuestionsList.length - 1 ? (
+                          <div className="grid grid-cols-10 gap-1.5">
+                            {currentQuestionsList.map((_, idx) => {
+                              const isAnswered = selectedAnswers[idx] !== undefined;
+                              const isCurrent = currentQuestion === idx;
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => setCurrentQuestion(idx)}
+                                  className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                    isCurrent
+                                      ? 'bg-[#0A2540] text-white ring-2 ring-sky-400'
+                                      : isAnswered
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                                  }`}
+                                >
+                                  {idx + 1}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {allQuestionsAnswered && (
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between">
+                            <span>✓ All {currentQuestionsList.length} questions answered!</span>
+                            <button
+                              onClick={handleSubmitExam}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black cursor-pointer shadow-sm"
+                            >
+                              Submit Test
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Active Question Stem with Progressive Animation */}
+                        {currentQ && (
+                          <div
+                            className={`transition-all duration-200 ${
+                              isShiftingQuestion ? 'opacity-30 -translate-y-2' : 'opacity-100 translate-y-0'
+                            }`}
+                          >
+                            <div className="p-4 bg-sky-50/60 rounded-2xl border border-sky-200 space-y-2 mb-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black text-[#0A2540]">
+                                  Question {currentQuestion + 1} of {currentQuestionsList.length}
+                                </span>
+                                {'paragraphRef' in currentQ && (
+                                  <span className="text-[10px] font-bold bg-sky-200 text-sky-950 px-2 py-0.5 rounded-full">
+                                    {currentQ.paragraphRef}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm font-bold text-slate-900 leading-relaxed font-sans">
+                                {currentQ.question}
+                              </p>
+                            </div>
+
+                            {/* Options */}
+                            <div className="space-y-2">
+                              {currentQ?.options.map((opt, i) => {
+                                const isSelected = selectedAnswers[currentQuestion] === opt;
+                                return (
+                                  <button
+                                    key={opt}
+                                    onClick={() => handleSelectReadingOption(opt)}
+                                    className={`w-full p-3 rounded-2xl border text-left text-xs sm:text-sm font-medium transition-all cursor-pointer flex items-start gap-3 ${
+                                      isSelected
+                                        ? 'bg-sky-50 border-[#0A2540] text-[#0A2540] font-bold shadow-xs ring-1 ring-[#0A2540]'
+                                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                                        isSelected
+                                          ? 'bg-[#0A2540] text-white'
+                                          : 'bg-slate-100 text-slate-600'
+                                      }`}
+                                    >
+                                      {String.fromCharCode(65 + i)}
+                                    </span>
+                                    <span className="pt-0.5 flex-1">{opt}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Navigation Buttons */}
+                      <div className="pt-6 border-t border-slate-200 flex items-center justify-between gap-3">
                         <button
-                          onClick={() => setCurrentQuestion((prev) => prev + 1)}
-                          className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                          disabled={currentQuestion === 0}
+                          onClick={() => setCurrentQuestion((prev) => Math.max(0, prev - 1))}
+                          className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold disabled:opacity-40 cursor-pointer flex items-center gap-1"
                         >
-                          <span>{lang === 'bn' ? 'পরের প্রশ্ন' : 'Next Question'}</span>
-                          <ChevronRight className="w-4 h-4" />
+                          <ChevronLeft className="w-4 h-4" />
+                          <span>{lang === 'bn' ? 'আগেরটি' : 'Previous'}</span>
                         </button>
-                      ) : (
-                        <button
-                          onClick={handleSubmitExam}
-                          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
-                        >
-                          {lang === 'bn' ? 'পরীক্ষা সাবমিট করুন' : 'Submit Reading Test'}
-                        </button>
-                      )}
+
+                        {currentQuestion < currentQuestionsList.length - 1 ? (
+                          <button
+                            onClick={() => setCurrentQuestion((prev) => prev + 1)}
+                            className="px-6 py-2.5 bg-[#0A2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span>{lang === 'bn' ? 'পরের প্রশ্ন' : 'Next Question'}</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleSubmitExam}
+                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+                          >
+                            {lang === 'bn' ? 'পরীক্ষা সাবমিট করুন' : 'Submit Reading Test'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 2. IELTS LISTENING MODE */}
               {moduleType === 'listening' && (
-                <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
+                <div className="max-w-4xl lg:max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-5">
                   {/* Cambridge Audio Player Card */}
-                  <div className="bg-gradient-to-br from-[#0A2540] to-slate-900 text-white p-5 rounded-3xl shadow-md space-y-4 border border-sky-900">
+                  <div className="bg-gradient-to-br from-[#0A2540] to-slate-900 text-white p-5 sm:p-6 rounded-3xl shadow-md space-y-4 border border-sky-900">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-10 h-10 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-inner">
@@ -679,69 +778,82 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
 
               {/* 3. IELTS WRITING MODE */}
               {moduleType === 'writing' && (
-                <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-2 py-0.5 rounded-full">
-                        Academic Task 2 (Discursive Essay)
-                      </span>
-                      <span className="text-amber-800 font-bold font-mono text-[11px]">
-                        Target: Band {user.targetScore}
-                      </span>
-                    </div>
-                    <p className="text-sm font-bold text-slate-900 font-serif leading-relaxed">
-                      "In many modern metropolitan cities, the expansion of high-density vehicular traffic has resulted in severe environmental degradation and public health crises. Some urban planners argue that private automobiles should be completely banned from city centers, while others contend this would severely disrupt commerce. Discuss both views and give your own opinion."
-                    </p>
-                    <p className="text-[11px] text-amber-800 italic">
-                      💡 Cambridge Rubric: Write at least 250 words. Essays under 150 words will receive maximum Band 4.5.
-                    </p>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-700">
-                        {lang === 'bn' ? 'আপনার প্রবন্ধ টাইপ করুন:' : 'Compose Your Essay:'}
-                      </span>
-                      {(() => {
-                        const words = writingText.trim().split(/\s+/).filter(Boolean).length;
-                        return (
-                          <span
-                            className={`font-mono font-bold px-2 py-0.5 rounded-md text-xs ${
-                              words >= 250
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : words >= 150
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-rose-100 text-rose-800'
-                            }`}
-                          >
-                            {words} words {words < 250 ? `(${250 - words} more needed)` : '✓ Target Met'}
+                <div className="max-w-5xl xl:max-w-6xl mx-auto w-full p-4 sm:p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    {/* Left Column: Academic Prompt & Cambridge Criteria */}
+                    <div className="lg:col-span-5 space-y-4">
+                      <div className="bg-amber-50 border border-amber-200 p-5 rounded-3xl text-xs space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-200 px-2.5 py-0.5 rounded-full">
+                            Academic Task 2 (Discursive Essay)
                           </span>
-                        );
-                      })()}
+                          <span className="text-amber-800 font-bold font-mono text-xs">
+                            Target: Band {user.targetScore}
+                          </span>
+                        </div>
+                        <h4 className="font-black text-slate-900 text-sm">Official Essay Prompt:</h4>
+                        <p className="text-sm font-bold text-slate-800 font-serif leading-relaxed bg-white/60 p-3.5 rounded-2xl border border-amber-200/60">
+                          "In many modern metropolitan cities, the expansion of high-density vehicular traffic has resulted in severe environmental degradation and public health crises. Some urban planners argue that private automobiles should be completely banned from city centers, while others contend this would severely disrupt commerce. Discuss both views and give your own opinion."
+                        </p>
+                        <div className="bg-white/80 p-3 rounded-xl border border-amber-200/50 space-y-1.5 text-[11px] text-amber-900">
+                          <p className="font-bold">Cambridge Evaluation Criteria:</p>
+                          <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-amber-800">
+                            <li>Task Achievement (Minimum 250 words, clear stance)</li>
+                            <li>Coherence & Cohesion (Logical flow, paragraph linking)</li>
+                            <li>Lexical Resource (Academic vocabulary, collocations)</li>
+                            <li>Grammar Range & Accuracy (Complex sentences)</li>
+                          </ul>
+                        </div>
+                      </div>
                     </div>
 
-                    <textarea
-                      rows={14}
-                      value={writingText}
-                      onChange={(e) => setWritingText(e.target.value)}
-                      placeholder="Begin with your introduction outlining both views, develop 2 analytical body paragraphs with topic sentences and evidence, and conclude with a definitive stance..."
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#0A2540] font-sans"
-                    />
+                    {/* Right Column: Essay Textarea & Controls */}
+                    <div className="lg:col-span-7 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700">
+                          {lang === 'bn' ? 'আপনার প্রবন্ধ টাইপ করুন:' : 'Compose Your Essay:'}
+                        </span>
+                        {(() => {
+                          const words = writingText.trim().split(/\s+/).filter(Boolean).length;
+                          return (
+                            <span
+                              className={`font-mono font-bold px-2.5 py-1 rounded-md text-xs ${
+                                words >= 250
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : words >= 150
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {words} words {words < 250 ? `(${250 - words} more required)` : '✓ 250 Target Met'}
+                            </span>
+                          );
+                        })()}
+                      </div>
 
-                    <button
-                      disabled={isSubmittingWriting}
-                      onClick={handleSubmitExam}
-                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {isSubmittingWriting ? (
-                        <span>Evaluating via Cambridge Rubric...</span>
-                      ) : (
-                        <>
-                          <span>{lang === 'bn' ? 'প্রবন্ধ সাবমিট ও স্কোর দেখুন' : 'Submit Essay & Generate Band Score'}</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                      <textarea
+                        rows={16}
+                        value={writingText}
+                        onChange={(e) => setWritingText(e.target.value)}
+                        placeholder="Begin with your introduction outlining both views, develop 2 analytical body paragraphs with topic sentences and evidence, and conclude with a definitive stance..."
+                        className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#0A2540] font-sans"
+                      />
+
+                      <button
+                        disabled={isSubmittingWriting}
+                        onClick={handleSubmitExam}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isSubmittingWriting ? (
+                          <span>Evaluating via Cambridge Rubric...</span>
+                        ) : (
+                          <>
+                            <span>{lang === 'bn' ? 'প্রবন্ধ সাবমিট ও স্কোর দেখুন' : 'Submit Essay & Generate Band Score'}</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

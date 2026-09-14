@@ -65,6 +65,8 @@ export interface UserProfile {
   referredBy?: string;
   walletBalance: number; // in BDT
   totalExamsQuota: number;
+  availableSessions: number; // Active sessions available for exams
+  dailySessionsQuota?: number; // e.g. 10 sessions/day for 499 plan
   examsCompleted: number;
   registeredAt?: string;
   moduleScores?: {

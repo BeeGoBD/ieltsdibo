@@ -24,6 +24,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  const handleFillDemoUser = () => {
+    setIdentifier('jobaerulalam2026@gmail.com');
+    setPassword('Password123!');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -54,40 +59,48 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
 
     // Student Authentication from registered database
-    const foundUser = registeredUsers.find(
+    const userById = registeredUsers.find(
       (u) =>
-        (u.email.toLowerCase() === cleanId || u.phone === cleanId || u.rollNumber?.toLowerCase() === cleanId) &&
-        (u.password ? u.password === cleanPass : true)
+        u.email.trim().toLowerCase() === cleanId ||
+        u.phone.trim() === cleanId ||
+        u.phone.trim().replace(/\D/g, '') === cleanId.replace(/\D/g, '') ||
+        u.rollNumber?.toLowerCase() === cleanId
     );
 
-    if (foundUser) {
-      if (foundUser.isRestricted) {
-        setError(
-          lang === 'bn'
-            ? 'আপনার অ্যাকাউন্টটি সিস্টেম অ্যাডমিন কর্তৃক সাময়িকভাবে স্থগিত (Restricted) করা হয়েছে।'
-            : 'Your account has been temporarily restricted by system administration.'
-        );
-        return;
-      }
-      onUserLogin(foundUser);
-    } else {
+    if (!userById) {
       setError(
         lang === 'bn'
-          ? 'ভুল তথ্য! প্রদত্ত ইমেইল/নম্বর এবং পাসওয়ার্ড মিলছে না।'
-          : 'Invalid credentials! The email/phone or password does not match our records.'
+          ? 'এই জিমেইল বা ফোন নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে সঠিক তথ্য দিন অথবা নতুন অ্যাকাউন্ট তৈরি করুন।'
+          : 'No registered account found with this Gmail or phone number. Please check your input or create an account.'
       );
+      return;
     }
-  };
 
-  const handleFillDemoUser = () => {
-    setIdentifier('jobaerulalam2026@gmail.com');
-    setPassword('Password123!');
+    if (userById.password && userById.password !== cleanPass) {
+      setError(
+        lang === 'bn'
+          ? 'পাসওয়ার্ডটি ভুল হয়েছে। অনুগ্রহ করে আপনার অ্যাকাউন্ট তৈরির সঠিক পাসওয়ার্ড প্রদান করুন।'
+          : 'Incorrect password! Please enter the exact password you created.'
+      );
+      return;
+    }
+
+    if (userById.isRestricted) {
+      setError(
+        lang === 'bn'
+          ? 'আপনার অ্যাকাউন্টটি সিস্টেম অ্যাডমিন কর্তৃক সাময়িকভাবে স্থগিত (Restricted) করা হয়েছে।'
+          : 'Your account has been temporarily restricted by system administration.'
+      );
+      return;
+    }
+
+    onUserLogin(userById);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50/40 flex flex-col justify-between text-slate-900 px-4 py-6 selection:bg-rose-500 selection:text-white">
       {/* Header */}
-      <header className="max-w-md mx-auto w-full flex items-center justify-between pt-2 pb-3">
+      <header className="max-w-md md:max-w-xl mx-auto w-full flex items-center justify-between pt-2 pb-3">
         <button
           onClick={onBack}
           className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -104,7 +117,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       </header>
 
       {/* Main Content */}
-      <main className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
+      <main className="max-w-md md:max-w-xl mx-auto w-full flex-1 flex flex-col justify-center">
         <div className="text-center mb-5">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0A2540] tracking-tight">
             {lang === 'bn' ? 'অ্যাকাউন্টে লগইন করুন' : 'Student Portal Login'}

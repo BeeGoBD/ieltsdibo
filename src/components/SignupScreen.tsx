@@ -115,7 +115,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-sky-50/40 flex flex-col justify-between text-slate-900 px-4 py-6 selection:bg-rose-500 selection:text-white">
       {/* Header / Progress bar */}
-      <header className="max-w-md mx-auto w-full flex items-center justify-between pt-2 pb-3">
+      <header className="max-w-md md:max-w-xl mx-auto w-full flex items-center justify-between pt-2 pb-3">
         <button
           onClick={onBack}
           className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -138,7 +138,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-md mx-auto w-full flex-1 flex flex-col justify-start">
+      <main className="max-w-md md:max-w-xl mx-auto w-full flex-1 flex flex-col justify-start">
         {/* Warm Mascot message */}
         <div className="flex flex-col items-center text-center my-2">
           <CartoonGuide
@@ -174,6 +174,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         {/* Clean Form */}
         <form
           onSubmit={validateAndProceed}
+          autoComplete="off"
           className="space-y-3 mt-3 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm"
         >
           {/* নাম */}
@@ -185,6 +186,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
+                autoComplete="off"
                 value={formData.name}
                 onChange={(e) => onUpdateFormData({ name: e.target.value })}
                 placeholder={lang === 'bn' ? 'যেমন: জোবায়েরুল আলম' : 'e.g. Jobaerul Alam'}
@@ -205,6 +207,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
               <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="email"
+                autoComplete="off"
                 value={formData.email}
                 onChange={(e) => onUpdateFormData({ email: e.target.value })}
                 placeholder="candidate@gmail.com"
@@ -225,6 +228,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
               <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="tel"
+                autoComplete="off"
                 maxLength={11}
                 value={formData.phone}
                 onChange={(e) => onUpdateFormData({ phone: e.target.value.replace(/\D/g, '') })}
@@ -248,6 +252,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => onUpdateFormData({ password: e.target.value })}
                 placeholder="Ex: Dhaka2026"
@@ -332,7 +337,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
       </main>
 
       {/* Back + Next */}
-      <footer className="max-w-md mx-auto w-full pt-4 pb-2 border-t border-slate-200/80 flex items-center justify-between gap-4 z-30 bg-white/80 backdrop-blur-md px-2 rounded-2xl">
+      <footer className="max-w-md md:max-w-xl mx-auto w-full pt-4 pb-2 border-t border-slate-200/80 flex items-center justify-between gap-4 z-30 bg-white/80 backdrop-blur-md px-2 rounded-2xl">
         <button
           onClick={onBack}
           className="px-5 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm transition-colors flex items-center gap-1.5 cursor-pointer"

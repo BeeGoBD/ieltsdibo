@@ -27,6 +27,7 @@ import {
   RotateCcw,
   Wallet,
   Play,
+  Zap,
 } from 'lucide-react';
 import {
   UserProfile,
@@ -40,7 +41,6 @@ import {
 } from '../types';
 import { TongueTwisterTab } from './TongueTwisterTab';
 import { generateIeltsPdf, generateSpecificModulePdf } from '../utils/pdfGenerator';
-import { getTierFromScore } from '../utils/questionBank';
 
 interface DashboardProps {
   user: UserProfile;
@@ -53,6 +53,7 @@ interface DashboardProps {
   onNavigateToPage: (page: PageView, extraData?: any) => void;
   onToggleLanguage: () => void;
   onResetApp: () => void;
+  onResetExams?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -66,10 +67,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigateToPage,
   onToggleLanguage,
   onResetApp,
+  onResetExams,
 }) => {
   const [activeTab, setActiveTab] = useState<DashboardTab>('exam_center');
   const [isChangingScore, setIsChangingScore] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+  const [resetSuccessToast, setResetSuccessToast] = useState(false);
 
   // Difficulty Tier & Probabilities
   const getDifficultyProbabilities = (score: string) => {
@@ -86,7 +90,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const diffProbs = getDifficultyProbabilities(user.targetScore);
-  const currentTier = getTierFromScore(user.targetScore);
 
   // Check if candidate subscription has expired
   const isExpired = user.expiryDate ? new Date(user.expiryDate).getTime() < Date.now() : false;
@@ -113,6 +116,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return null;
   };
 
+  const isNineTakaPlan =
+    user.subscriptionPlanId === 'plan_1day' ||
+    Boolean(user.subscriptionPlanTitle?.includes('৯') || user.subscriptionPlanTitle?.includes('9'));
+
   const handleStartOrRetakeModule = (mod: SkillCategory) => {
     if (user.paymentStatus !== 'approved') {
       alert(
@@ -131,6 +138,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return;
     }
 
+    const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
+    if (currentSessions <= 0) {
+      alert(
+        lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
+          : 'You have used all sessions in your subscription plan. Please renew to continue taking exams.'
+      );
+      return;
+    }
+
+    // Deduct 1 session on starting any exam
+    onUpdateUser({
+      availableSessions: Math.max(0, currentSessions - 1),
+      examsCompleted: (user.examsCompleted || 0) + 1,
+    });
+
     if (mod === 'speaking') {
       onNavigateToPage('speaking_exam');
     } else if (mod === 'reading') {
@@ -142,33 +165,156 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const handleStartFullMock = () => {
+    if (user.paymentStatus !== 'approved') {
+      alert(
+        lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন ফি ভেরিফিকেশন চলছে। অ্যাডমিন অনুমোদন সম্পন্ন হলে পরীক্ষা শুরু হবে।'
+          : 'Your payment is pending admin approval.'
+      );
+      return;
+    }
+    if (isExpired) {
+      alert(
+        lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন মেয়াদ শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
+          : 'Your subscription has expired. Please renew your plan.'
+      );
+      return;
+    }
+
+    const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
+    if (currentSessions <= 0) {
+      alert(
+        lang === 'bn'
+          ? 'আপনার সাবস্ক্রিপশন প্ল্যানের সকল সেশন শেষ হয়েছে। নতুন পরীক্ষা দেওয়ার জন্য প্ল্যান রিনিউ করুন।'
+          : 'You have used all sessions. Please renew your plan.'
+      );
+      return;
+    }
+
+    // Deduct 1 session on starting full mock
+    onUpdateUser({
+      availableSessions: Math.max(0, currentSessions - 1),
+      examsCompleted: (user.examsCompleted || 0) + 1,
+    });
+
+    onNavigateToPage('full_mock_exam');
+  };
+
+  const handleConfirmResetExam = () => {
+    if (isNineTakaPlan) {
+      setShowResetConfirmModal(false);
+      return;
+    }
+
+    const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
+    if (currentSessions <= 0) {
+      alert(
+        lang === 'bn'
+          ? 'আপনার কোনো অবশিষ্ট সেশন নেই। রিসেট করা সম্ভব নয়।'
+          : 'No sessions available. Cannot reset exam.'
+      );
+      setShowResetConfirmModal(false);
+      return;
+    }
+
+    if (onResetExams) {
+      onResetExams();
+    } else {
+      onUpdateUser({
+        availableSessions: Math.max(0, currentSessions - 1),
+        moduleScores: {},
+      });
+    }
+    setShowResetConfirmModal(false);
+    setResetSuccessToast(true);
+    setTimeout(() => {
+      setResetSuccessToast(false);
+    }, 3500);
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center selection:bg-rose-500 selection:text-white">
-      {/* Mobile-First Container */}
-      <div className="w-full max-w-md min-h-screen bg-slate-50 flex flex-col relative shadow-2xl overflow-x-hidden">
+      {/* Responsive Container: Mobile + Laptop View */}
+      <div className="w-full max-w-md md:max-w-5xl lg:max-w-6xl xl:max-w-7xl min-h-screen bg-slate-50 flex flex-col relative shadow-2xl md:shadow-none overflow-x-hidden md:border-x md:border-slate-200">
         {/* Top Header */}
-        <header className="sticky top-0 z-40 bg-[#0A2540] text-white px-4 py-3 border-b border-sky-900/50 shadow-md flex items-center justify-between">
+        <header className="sticky top-0 z-40 bg-[#0A2540] text-white px-4 md:px-6 py-3 border-b border-sky-900/50 shadow-md flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMenuOpen(true)}
-              className="p-1.5 rounded-xl hover:bg-white/10 text-white transition-colors cursor-pointer"
+              className="p-1.5 rounded-xl hover:bg-white/10 text-white transition-colors cursor-pointer md:hidden"
               title={lang === 'bn' ? 'মেনু' : 'Menu'}
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Dynamic Brand Logo: 'আইলস দিবো' in Bengali, 'IELTS DIBO' in English */}
+            {/* Dynamic Brand Logo */}
             <div className="flex flex-col">
-              <span className="font-extrabold text-base tracking-tight text-white leading-none">
+              <span className="font-extrabold text-base md:text-lg tracking-tight text-white leading-none">
                 {lang === 'bn' ? 'আইলস দিবো' : 'IELTS DIBO'}
               </span>
-              <span className="text-[9px] text-sky-200 tracking-wider font-semibold">
-                Official Mock Test Center
+              <span className="text-[9px] md:text-[10px] text-sky-200 tracking-wider font-semibold">
+                Official Cambridge Mock Test Center
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Desktop Navigation Tabs */}
+          <div className="hidden md:flex items-center gap-1 bg-sky-950/60 p-1 rounded-2xl border border-white/10 text-xs font-bold">
+            <button
+              onClick={() => setActiveTab('exam_modules')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                activeTab === 'exam_modules'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-sky-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {lang === 'bn' ? 'মক টেস্ট সেন্টার' : 'Mock Tests'}
+            </button>
+            <button
+              onClick={() => setActiveTab('old_exams')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                activeTab === 'old_exams'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-sky-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {lang === 'bn' ? 'পূর্ববর্তী পরীক্ষা ও TRF' : 'Exam Records'}
+            </button>
+            <button
+              onClick={() => setActiveTab('tongue_twister')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                activeTab === 'tongue_twister'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-sky-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {lang === 'bn' ? 'টাং টুইস্টার' : 'Tongue Twisters'}
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  : 'text-sky-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {lang === 'bn' ? 'প্রোফাইল' : 'Profile'}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Live Available Sessions Badge */}
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-xl text-xs font-bold shadow-xs">
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
+              <span>
+                {lang === 'bn'
+                  ? `সেশন: ${user.availableSessions !== undefined ? user.availableSessions : 10} টি`
+                  : `Sessions: ${user.availableSessions !== undefined ? user.availableSessions : 10}`}
+              </span>
+            </div>
+
             {/* Language Switcher Button */}
             <button
               onClick={onToggleLanguage}
@@ -445,40 +591,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <h3 className="font-extrabold text-sm text-[#0A2540]">
                     {lang === 'bn' ? 'মক টেস্ট মডিউল সেন্টার' : 'Mock Test Module Center'}
                   </h3>
-                  <span className="text-[10px] text-slate-400 font-bold">{currentTier} Tier</span>
+                  <button
+                    id="reset-exam-button"
+                    type="button"
+                    onClick={() => setShowResetConfirmModal(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200/80 border border-rose-200/80 rounded-xl transition-all cursor-pointer shadow-2xs"
+                    title={lang === 'bn' ? 'পরীক্ষার সমস্ত অগ্রগতি রিসেট করুন' : 'Reset all exam progress'}
+                  >
+                    <RotateCcw className="w-3 h-3 text-rose-500" />
+                    <span>{lang === 'bn' ? 'রিসেট এক্সাম' : 'Reset Exam'}</span>
+                  </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  {/* 1. READING */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                  {/* 1. LISTENING */}
                   {(() => {
-                    const score = getModuleScore('reading');
+                    const score = getModuleScore('listening');
                     const hasCompleted = score !== null;
                     return (
-                      <div className="aspect-square bg-gradient-to-br from-emerald-600 to-teal-800 rounded-3xl p-4 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
+                      <div className="min-h-[190px] lg:min-h-[220px] bg-gradient-to-br from-sky-600 to-indigo-800 rounded-3xl p-4 lg:p-5 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
                         <div className="flex items-center justify-between">
                           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                            <BookOpen className="w-4 h-4 text-white" />
+                            <Headphones className="w-4 h-4 text-white" />
                           </div>
-                          <span className="text-[10px] font-bold bg-emerald-950/40 px-2 py-0.5 rounded-full">
-                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : '40 Qs'}
+                          <span className="text-[10px] font-bold bg-sky-950/40 px-2 py-0.5 rounded-full">
+                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : '1. Audio'}
                           </span>
                         </div>
 
                         <div>
-                          <h4 className="font-black text-sm text-white leading-tight">IELTS Reading</h4>
+                          <h4 className="font-black text-sm lg:text-base text-white leading-tight">IELTS Listening</h4>
                           {hasCompleted ? (
                             <div className="mt-1">
-                              <span className="text-[10px] text-emerald-100 block">
+                              <span className="text-[10px] text-sky-100 block">
                                 {lang === 'bn' ? 'অর্জিত স্কোর:' : 'Achieved Score:'}
                               </span>
-                              {/* Big Bold Score Display per user requirement! */}
                               <span className="text-2xl font-black text-amber-300 font-mono">
                                 ব্যান্ড: {score.toFixed(1)}
                               </span>
                             </div>
                           ) : (
-                            <p className="text-[10px] text-emerald-100 mt-0.5">
-                              {lang === 'bn' ? 'প্যাসেজ ও নিখুঁত মূল্যায়ন' : 'Passage & Questions'}
+                            <p className="text-[10px] text-sky-100 mt-0.5">
+                              {lang === 'bn' ? 'অডিও নোট কমপ্লিশন ও MCQ' : 'Audio Note Completion'}
                             </p>
                           )}
                         </div>
@@ -486,16 +640,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="pt-2 border-t border-white/20">
                           {hasCompleted ? (
                             <button
-                              onClick={() => handleStartOrRetakeModule('reading')}
-                              className="w-full py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              onClick={() => handleStartOrRetakeModule('listening')}
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>{lang === 'bn' ? 'পুনরায় পরীক্ষা দিন' : 'Retake Exam'}</span>
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleStartOrRetakeModule('reading')}
-                              className="w-full py-1.5 rounded-xl bg-white text-emerald-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-emerald-50 transition-colors"
+                              onClick={() => handleStartOrRetakeModule('listening')}
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white text-indigo-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-sky-50 transition-colors"
                             >
                               <span>{lang === 'bn' ? 'টেস্ট দিন' : 'Start Exam'}</span>
                               <ArrowRight className="w-3 h-3" />
@@ -511,18 +665,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     const score = getModuleScore('writing');
                     const hasCompleted = score !== null;
                     return (
-                      <div className="aspect-square bg-gradient-to-br from-amber-500 to-orange-700 rounded-3xl p-4 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
+                      <div className="min-h-[190px] lg:min-h-[220px] bg-gradient-to-br from-amber-500 to-orange-700 rounded-3xl p-4 lg:p-5 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
                         <div className="flex items-center justify-between">
                           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                             <PenTool className="w-4 h-4 text-white" />
                           </div>
                           <span className="text-[10px] font-bold bg-amber-950/40 px-2 py-0.5 rounded-full">
-                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : 'Task 2'}
+                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : '2. Task 2'}
                           </span>
                         </div>
 
                         <div>
-                          <h4 className="font-black text-sm text-white leading-tight">IELTS Writing</h4>
+                          <h4 className="font-black text-sm lg:text-base text-white leading-tight">IELTS Writing</h4>
                           {hasCompleted ? (
                             <div className="mt-1">
                               <span className="text-[10px] text-amber-100 block">
@@ -543,7 +697,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           {hasCompleted ? (
                             <button
                               onClick={() => handleStartOrRetakeModule('writing')}
-                              className="w-full py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>{lang === 'bn' ? 'পুনরায় পরীক্ষা দিন' : 'Retake Exam'}</span>
@@ -551,7 +705,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           ) : (
                             <button
                               onClick={() => handleStartOrRetakeModule('writing')}
-                              className="w-full py-1.5 rounded-xl bg-white text-orange-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-orange-50 transition-colors"
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white text-orange-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-orange-50 transition-colors"
                             >
                               <span>{lang === 'bn' ? 'টেস্ট দিন' : 'Start Exam'}</span>
                               <ArrowRight className="w-3 h-3" />
@@ -562,26 +716,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     );
                   })()}
 
-                  {/* 3. LISTENING */}
+                  {/* 3. READING */}
                   {(() => {
-                    const score = getModuleScore('listening');
+                    const score = getModuleScore('reading');
                     const hasCompleted = score !== null;
                     return (
-                      <div className="aspect-square bg-gradient-to-br from-sky-600 to-indigo-800 rounded-3xl p-4 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
+                      <div className="min-h-[190px] lg:min-h-[220px] bg-gradient-to-br from-emerald-600 to-teal-800 rounded-3xl p-4 lg:p-5 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
                         <div className="flex items-center justify-between">
                           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-                            <Headphones className="w-4 h-4 text-white" />
+                            <BookOpen className="w-4 h-4 text-white" />
                           </div>
-                          <span className="text-[10px] font-bold bg-sky-950/40 px-2 py-0.5 rounded-full">
-                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : 'Audio'}
+                          <span className="text-[10px] font-bold bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : '3. Reading'}
                           </span>
                         </div>
 
                         <div>
-                          <h4 className="font-black text-sm text-white leading-tight">IELTS Listening</h4>
+                          <h4 className="font-black text-sm lg:text-base text-white leading-tight">IELTS Reading</h4>
                           {hasCompleted ? (
                             <div className="mt-1">
-                              <span className="text-[10px] text-sky-100 block">
+                              <span className="text-[10px] text-emerald-100 block">
                                 {lang === 'bn' ? 'অর্জিত স্কোর:' : 'Achieved Score:'}
                               </span>
                               <span className="text-2xl font-black text-amber-300 font-mono">
@@ -589,8 +743,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               </span>
                             </div>
                           ) : (
-                            <p className="text-[10px] text-sky-100 mt-0.5">
-                              {lang === 'bn' ? 'অডিও নোট কমপ্লিশন' : 'Audio Note Completion'}
+                            <p className="text-[10px] text-emerald-100 mt-0.5">
+                              {lang === 'bn' ? 'প্যাসেজ ও নিখুঁত মূল্যায়ন' : 'Passage & Questions'}
                             </p>
                           )}
                         </div>
@@ -598,16 +752,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="pt-2 border-t border-white/20">
                           {hasCompleted ? (
                             <button
-                              onClick={() => handleStartOrRetakeModule('listening')}
-                              className="w-full py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              onClick={() => handleStartOrRetakeModule('reading')}
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>{lang === 'bn' ? 'পুনরায় পরীক্ষা দিন' : 'Retake Exam'}</span>
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleStartOrRetakeModule('listening')}
-                              className="w-full py-1.5 rounded-xl bg-white text-indigo-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-sky-50 transition-colors"
+                              onClick={() => handleStartOrRetakeModule('reading')}
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white text-emerald-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-emerald-50 transition-colors"
                             >
                               <span>{lang === 'bn' ? 'টেস্ট দিন' : 'Start Exam'}</span>
                               <ArrowRight className="w-3 h-3" />
@@ -623,18 +777,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     const score = getModuleScore('speaking');
                     const hasCompleted = score !== null;
                     return (
-                      <div className="aspect-square bg-gradient-to-br from-rose-600 to-pink-800 rounded-3xl p-4 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
+                      <div className="min-h-[190px] lg:min-h-[220px] bg-gradient-to-br from-rose-600 to-pink-800 rounded-3xl p-4 lg:p-5 text-white shadow-md flex flex-col justify-between relative overflow-hidden">
                         <div className="flex items-center justify-between">
                           <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                             <Mic className="w-4 h-4 text-white" />
                           </div>
                           <span className="text-[10px] font-bold bg-rose-950/40 px-2 py-0.5 rounded-full">
-                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : 'Interview'}
+                            {hasCompleted ? (lang === 'bn' ? 'সম্পন্ন' : 'Completed') : '4. Speaking'}
                           </span>
                         </div>
 
                         <div>
-                          <h4 className="font-black text-sm text-white leading-tight">IELTS Speaking</h4>
+                          <h4 className="font-black text-sm lg:text-base text-white leading-tight">IELTS Speaking</h4>
                           {hasCompleted ? (
                             <div className="mt-1">
                               <span className="text-[10px] text-rose-100 block">
@@ -646,7 +800,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                           ) : (
                             <p className="text-[10px] text-rose-100 mt-0.5">
-                              {lang === 'bn' ? 'ক্যামব্রিজ এক্সামিনার ইন্টারভিউ' : 'Cambridge Examiner'}
+                              {lang === 'bn' ? 'ক্যামব্রিজ এক্সামিনার ইন্টারভিউ' : 'Voice-Only AI Examiner'}
                             </p>
                           )}
                         </div>
@@ -655,7 +809,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           {hasCompleted ? (
                             <button
                               onClick={() => handleStartOrRetakeModule('speaking')}
-                              className="w-full py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
                             >
                               <RotateCcw className="w-3 h-3" />
                               <span>{lang === 'bn' ? 'পুনরায় পরীক্ষা দিন' : 'Retake Exam'}</span>
@@ -663,7 +817,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           ) : (
                             <button
                               onClick={() => handleStartOrRetakeModule('speaking')}
-                              className="w-full py-1.5 rounded-xl bg-white text-rose-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-rose-50 transition-colors"
+                              className="w-full py-1.5 lg:py-2 rounded-xl bg-white text-rose-950 text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer shadow-sm hover:bg-rose-50 transition-colors"
                             >
                               <span>{lang === 'bn' ? 'টেস্ট দিন' : 'Start Exam'}</span>
                               <ArrowRight className="w-3 h-3" />
@@ -677,33 +831,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {/* Full Mock Test Card */}
-              <div className="bg-gradient-to-r from-[#0A2540] to-sky-950 p-4.5 rounded-3xl text-white shadow-md space-y-3">
+              <div className="bg-gradient-to-r from-[#0A2540] to-sky-950 p-5 rounded-3xl text-white shadow-md space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                    Complete Diagnostic
+                    Complete Diagnostic • 1 Session Deduction
                   </span>
                   <span className="text-xs font-mono font-bold text-sky-200">
-                    Quota: {user.examsCompleted} / {user.totalExamsQuota}
+                    Remaining Sessions: {user.availableSessions !== undefined ? user.availableSessions : 10}
                   </span>
                 </div>
 
                 <div>
-                  <h4 className="font-extrabold text-base text-white">
+                  <h4 className="font-extrabold text-base md:text-lg text-white">
                     {lang === 'bn' ? 'সম্পূর্ণ ৩ ঘণ্টার ফুল মক টেস্ট' : 'Full 3-Hour IELTS Mock Test'}
                   </h4>
                   <p className="text-xs text-sky-100 mt-0.5">
                     {lang === 'bn'
-                      ? 'লিসেনিং, রিডিং, রাইটিং ও স্পিকিং টেস্ট একসাথে দিয়ে অফিসিয়াল TRF সার্টিফিকেট ডাউনলোড করুন।'
-                      : 'Take all 4 skills consecutively to generate your cumulative Cambridge TRF report.'}
+                      ? 'লিসেনিং, রাইটিং, রিডিং ও স্পিকিং টেস্ট একসাথে সম্পন্ন করে অফিসিয়াল TRF ও সার্টিফিকেট ডাউনলোড করুন।'
+                      : 'Take Listening, Writing, Reading, and Speaking consecutively to generate your cumulative Cambridge TRF report.'}
                   </p>
                 </div>
 
                 <button
-                  onClick={() => onNavigateToPage('full_mock_exam')}
+                  onClick={handleStartFullMock}
                   className="w-full py-3 bg-[#FF5A36] hover:bg-[#EA580C] text-white font-extrabold rounded-2xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border-b-4 border-[#C2410C]"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  <span>{lang === 'bn' ? 'ফুল মক টেস্ট শুরু করুন' : 'Begin Full Mock Test'}</span>
+                  <span>{lang === 'bn' ? 'ফুল মক টেস্ট শুরু করুন (১টি সেশন কাটা হবে)' : 'Begin Full Mock Test (Deducts 1 Session)'}</span>
                 </button>
               </div>
             </div>
@@ -927,6 +1081,99 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span className="text-[10px]">{lang === 'bn' ? 'অ্যাকাউন্ট' : 'Account'}</span>
           </button>
         </nav>
+
+        {/* Reset Exam Confirmation Modal (Requires clicking OK to confirm) */}
+        {showResetConfirmModal && (
+          <div
+            id="reset-exam-confirm-modal"
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-modal-title"
+          >
+            <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center animate-in zoom-in-95 duration-150">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3.5 shadow-xs ${
+                  isNineTakaPlan ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
+                }`}
+              >
+                {isNineTakaPlan ? <AlertCircle className="w-6 h-6" /> : <RotateCcw className="w-6 h-6" />}
+              </div>
+
+              <h3 id="reset-modal-title" className="text-base font-black text-[#0A2540]">
+                {isNineTakaPlan
+                  ? (lang === 'bn' ? 'রিসেট প্রযোজ্য নয়' : 'Reset Option Not Available')
+                  : (lang === 'bn' ? 'সতর্কবার্তা: পরীক্ষা রিসেট' : 'Warning: Reset Exam Results')}
+              </h3>
+
+              <div className="text-xs text-slate-600 mt-2 leading-relaxed space-y-2">
+                {isNineTakaPlan ? (
+                  <p className="text-rose-600 font-semibold">
+                    {lang === 'bn'
+                      ? '৯ টাকার সাবস্ক্রিপশন প্ল্যানের জন্য এক্সাম রিসেট অপশনটি প্রযোজ্য নয়। পুনরায় পরীক্ষা দিতে অনুগ্রহ করে স্ট্যান্ডার্ড প্ল্যান গ্রহণ করুন।'
+                      : 'The 9 Taka subscription is not applicable for the reset option. Please upgrade to a standard subscription plan to retake.'}
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-bold text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                      {lang === 'bn'
+                        ? '⚠️ ফলাফল রিসেট করার মাধ্যমে আপনার অ্যাকাউন্ট থেকে ১টি সেশন কর্তন করা হবে।'
+                        : '⚠️ Warning: By resetting the result, you will lose one session from your subscription.'}
+                    </p>
+                    <p>
+                      {lang === 'bn'
+                        ? `রিসেট করার পর আপনার অবশিষ্ট সেশন থাকবে: ${Math.max(0, (user.availableSessions ?? 10) - 1)} টি। আপনি কি নিশ্চিত যে আপনি পরীক্ষা রিসেট করতে চান?`
+                        : `Remaining sessions after reset: ${Math.max(0, (user.availableSessions ?? 10) - 1)}. Click OK to confirm or Cancel to keep your scores.`}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                {isNineTakaPlan ? (
+                  <button
+                    onClick={() => setShowResetConfirmModal(false)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-black shadow-md cursor-pointer"
+                  >
+                    {lang === 'bn' ? 'ঠিক আছে (Close)' : 'Close'}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      id="cancel-reset-exam-btn"
+                      type="button"
+                      onClick={() => setShowResetConfirmModal(false)}
+                      className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      {lang === 'bn' ? 'বাতিল (Cancel)' : 'Cancel'}
+                    </button>
+
+                    <button
+                      id="confirm-ok-reset-exam-btn"
+                      type="button"
+                      onClick={handleConfirmResetExam}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-black shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+                    >
+                      {lang === 'bn' ? 'ঠিক আছে (OK)' : 'OK'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reset Success Toast */}
+        {resetSuccessToast && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 animate-in slide-in-from-top duration-200">
+            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+            <span>
+              {lang === 'bn'
+                ? 'পরীক্ষার সমস্ত অগ্রগতি সফলভাবে রিসেট করা হয়েছে!'
+                : 'Exam progress and scores have been reset successfully!'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
