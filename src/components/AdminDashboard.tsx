@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Lock,
   Unlock,
+  KeyRound,
   Eye,
   LogOut,
   Sparkles,
@@ -54,6 +55,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [rejectionFeedback, setRejectionFeedback] = useState('');
   const [rejectWithdrawModal, setRejectWithdrawModal] = useState<WithdrawRecord | null>(null);
   const [withdrawRejectReason, setWithdrawRejectReason] = useState('');
+  const [resetUserPassModal, setResetUserPassModal] = useState<UserProfile | null>(null);
+  const [newPassInput, setNewPassInput] = useState('Nahida123');
+  const [passResetSuccessToast, setPassResetSuccessToast] = useState(false);
 
   // Count pending items
   const pendingApprovalsCount = users.filter((u) => u.paymentStatus === 'pending').length;
@@ -127,6 +131,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       isRestricted: !user.isRestricted,
     };
     onUpdateUser(updated);
+  };
+
+  // Action: Reset User Password by Admin
+  const handleConfirmResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUserPassModal || !newPassInput.trim()) return;
+
+    onUpdateUser({
+      ...resetUserPassModal,
+      password: newPassInput.trim(),
+    });
+
+    setPassResetSuccessToast(true);
+    setResetUserPassModal(null);
+    setTimeout(() => setPassResetSuccessToast(false), 3500);
   };
 
   // Action: Approve Withdrawal
@@ -516,8 +535,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
 
-                    {/* Restrict / Unrestrict button */}
+                    {/* Action buttons: Reset Password & Restrict */}
                     <div className="flex items-center gap-2 self-start sm:self-center">
+                      <button
+                        onClick={() => {
+                          setResetUserPassModal(u);
+                          setNewPassInput(u.email?.toLowerCase().trim() === 'nahida09819@gmail.com' ? 'Nahida123' : (u.password || 'Nahida123'));
+                        }}
+                        className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 shadow-xs"
+                        title="পাসওয়ার্ড পরিবর্তন বা রিসেট করুন"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                        <span>পাসওয়ার্ড রিসেট</span>
+                      </button>
+
                       <button
                         onClick={() => handleToggleRestriction(u)}
                         className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
@@ -841,6 +872,129 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL: Reset Student Password */}
+      <AnimatePresence>
+        {resetUserPassModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl text-slate-800"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900">
+                      শিক্ষার্থীর পাসওয়ার্ড রিসেট
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      অ্যাডমিন প্যানেল থেকে পাসওয়ার্ড পরিবর্তন
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setResetUserPassModal(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Student info */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">শিক্ষার্থীর নাম:</span>
+                  <span className="font-bold text-slate-800">{resetUserPassModal.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ইমেইল:</span>
+                  <span className="font-mono font-bold text-slate-800">{resetUserPassModal.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">স্টুডেন্ট আইডি:</span>
+                  <span className="font-mono font-bold text-slate-800">{resetUserPassModal.rollNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">বর্তমান পাসওয়ার্ড:</span>
+                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                    {resetUserPassModal.password || 'অনির্ধারিত'}
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmResetPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    নতুন পাসওয়ার্ড (New Password)
+                  </label>
+                  <input
+                    type="text"
+                    value={newPassInput}
+                    onChange={(e) => setNewPassInput(e.target.value)}
+                    placeholder="যেমন: Nahida123"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    required
+                  />
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-[11px] text-slate-500">কুইক পাসওয়ার্ড:</span>
+                    <button
+                      type="button"
+                      onClick={() => setNewPassInput('Nahida123')}
+                      className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-mono text-[11px] font-bold rounded cursor-pointer"
+                    >
+                      Nahida123
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPassInput('Password123!')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-mono text-[11px] font-medium rounded cursor-pointer"
+                    >
+                      Password123!
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetUserPassModal(null)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    বাতিল
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>নতুন পাসওয়ার্ড সেভ করুন</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Toast */}
+      <AnimatePresence>
+        {passResetSuccessToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+            <span>পাসওয়ার্ড সফলভাবে আপডেট ও সেভ হয়েছে!</span>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

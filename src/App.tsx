@@ -50,13 +50,39 @@ const createBlankStudent = (): UserProfile => ({
   moduleScores: {},
 });
 
-// Clean initial data - all previous mock/demo accounts and history wiped fresh
-const INITIAL_USERS: UserProfile[] = [];
+// Seeded verified student account: Nahida (email: nahida09819@gmail.com, pass: Nahida123)
+export const createNahidaStudent = (): UserProfile => ({
+  id: 'USR-9819',
+  name: 'Nahida',
+  email: 'nahida09819@gmail.com',
+  phone: '01890009819',
+  password: 'Nahida123',
+  targetScore: '7.5',
+  weakness: 'speaking',
+  subscriptionPlanId: 'plan_30days',
+  subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
+  subscriptionDays: 30,
+  paymentStatus: 'approved',
+  rollNumber: 'DIBO-2026-9819',
+  referralCode: 'NAHIDA9819',
+  walletBalance: 0,
+  totalExamsQuota: 300,
+  availableSessions: 10,
+  dailySessionsQuota: 10,
+  examsCompleted: 0,
+  isRestricted: false,
+  approvalDate: new Date().toISOString(),
+  expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  moduleScores: {},
+});
+
+// Initial users array ensuring Nahida's account exists with Nahida123 password
+const INITIAL_USERS: UserProfile[] = [createNahidaStudent()];
 const INITIAL_EXAMS: ExamRecord[] = [];
 const INITIAL_WITHDRAWALS: WithdrawRecord[] = [];
 const INITIAL_TICKETS: SupportTicket[] = [];
 
-// Clean legacy and mock demo keys if present in browser
+// Clean legacy and ensure Nahida's account has password Nahida123
 try {
   ['ielts_dao_step', 'ielts_dao_users', 'ielts_dao_current_user', 'ielts_dao_exams', 'ielts_dao_withdrawals', 'ielts_dao_tickets'].forEach(
     (k) => localStorage.removeItem(k)
@@ -66,11 +92,31 @@ try {
   if (currentUserRaw && currentUserRaw.includes('USR-7001')) {
     localStorage.removeItem('ielts_dibo_v2_current_user');
   }
+
+  // Ensure nahida09819@gmail.com is present with Nahida123
   const usersRaw = localStorage.getItem('ielts_dibo_v2_users');
-  if (usersRaw && usersRaw.includes('USR-7001')) {
-    const parsed = JSON.parse(usersRaw);
-    const filtered = parsed.filter((u: any) => u.id !== 'USR-7001' && u.email !== 'jobaerulalam2026@gmail.com');
-    localStorage.setItem('ielts_dibo_v2_users', JSON.stringify(filtered));
+  let usersList: UserProfile[] = usersRaw ? JSON.parse(usersRaw) : [];
+  if (!Array.isArray(usersList)) usersList = [];
+
+  const nahidaIndex = usersList.findIndex(
+    (u) => u.email?.toLowerCase().trim() === 'nahida09819@gmail.com'
+  );
+  if (nahidaIndex >= 0) {
+    usersList[nahidaIndex].password = 'Nahida123';
+  } else {
+    usersList.unshift(createNahidaStudent());
+  }
+  localStorage.setItem('ielts_dibo_v2_users', JSON.stringify(usersList));
+
+  // If current active user in storage is Nahida, update password
+  if (currentUserRaw) {
+    try {
+      const cur = JSON.parse(currentUserRaw);
+      if (cur?.email?.toLowerCase().trim() === 'nahida09819@gmail.com') {
+        cur.password = 'Nahida123';
+        localStorage.setItem('ielts_dibo_v2_current_user', JSON.stringify(cur));
+      }
+    } catch (e) {}
   }
 } catch (e) {}
 
@@ -98,7 +144,18 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed.filter((u: any) => u.id !== 'USR-7001');
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((u: any) => u.id !== 'USR-7001');
+          const nahidaIdx = filtered.findIndex(
+            (u) => u.email?.toLowerCase().trim() === 'nahida09819@gmail.com'
+          );
+          if (nahidaIdx >= 0) {
+            filtered[nahidaIdx].password = 'Nahida123';
+            return filtered;
+          } else {
+            return [createNahidaStudent(), ...filtered];
+          }
+        }
       } catch (e) {}
     }
     return INITIAL_USERS;
@@ -110,7 +167,12 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id !== 'USR-7001') return parsed;
+        if (parsed && parsed.id !== 'USR-7001') {
+          if (parsed.email?.toLowerCase().trim() === 'nahida09819@gmail.com') {
+            parsed.password = 'Nahida123';
+          }
+          return parsed;
+        }
       } catch (e) {}
     }
     return createBlankStudent();
@@ -196,6 +258,55 @@ export default function App() {
     if (currentUser.id === updatedUser.id) {
       setCurrentUser(updatedUser);
     }
+  };
+
+  // Handler: Reset Student Password
+  const handleResetStudentPassword = (emailOrPhone: string, newPass: string): boolean => {
+    const cleanId = emailOrPhone.trim().toLowerCase();
+    const cleanPass = newPass.trim();
+    if (!cleanId || !cleanPass) return false;
+
+    let updated = false;
+    setUsers((prev) => {
+      const exists = prev.some(
+        (u) =>
+          u.email?.toLowerCase().trim() === cleanId ||
+          u.phone?.trim() === cleanId ||
+          u.phone?.trim().replace(/\D/g, '') === cleanId.replace(/\D/g, '') ||
+          u.rollNumber?.toLowerCase() === cleanId
+      );
+      if (exists) {
+        updated = true;
+        return prev.map((u) => {
+          if (
+            u.email?.toLowerCase().trim() === cleanId ||
+            u.phone?.trim() === cleanId ||
+            u.phone?.trim().replace(/\D/g, '') === cleanId.replace(/\D/g, '') ||
+            u.rollNumber?.toLowerCase() === cleanId
+          ) {
+            return { ...u, password: cleanPass };
+          }
+          return u;
+        });
+      } else {
+        updated = true;
+        const newStudent = createNahidaStudent();
+        if (cleanId.includes('@')) {
+          newStudent.email = cleanId;
+        }
+        newStudent.password = cleanPass;
+        return [newStudent, ...prev];
+      }
+    });
+
+    if (
+      currentUser.email?.toLowerCase().trim() === cleanId ||
+      currentUser.phone?.trim() === cleanId
+    ) {
+      setCurrentUser((prev) => ({ ...prev, password: cleanPass }));
+    }
+
+    return updated;
   };
 
   // Handler: Update withdrawal record by Admin
@@ -302,6 +413,7 @@ export default function App() {
           onAdminLogin={() => {
             setCurrentStep('admin');
           }}
+          onResetPassword={handleResetStudentPassword}
           onBack={() => setCurrentStep('landing')}
           onGoToSignup={() => setCurrentStep('signup')}
         />
