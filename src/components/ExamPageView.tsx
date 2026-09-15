@@ -33,6 +33,7 @@ import { getReadingTestSet, ReadingTestSet, ReadingQuestion } from '../utils/rea
 import { getListeningTestSet, ListeningTestSet, ListeningQuestion } from '../utils/listeningQuestions';
 import { sound } from '../utils/soundEffects';
 import { MultiSpeakerAudioPlayer } from './MultiSpeakerAudioPlayer';
+import { TrialSubscriptionModal } from './TrialSubscriptionModal';
 
 interface ExamPageViewProps {
   moduleType: SkillCategory;
@@ -41,6 +42,7 @@ interface ExamPageViewProps {
   onBack: () => void;
   onExamComplete: (record: ExamRecord) => void;
   onViewFullReport?: (record: ExamRecord) => void;
+  onSubscribe?: (planId: string) => void;
 }
 
 export const ExamPageView: React.FC<ExamPageViewProps> = ({
@@ -50,7 +52,11 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
   onBack,
   onExamComplete,
   onViewFullReport,
+  onSubscribe,
 }) => {
+  const isTrial = Boolean(user.isTrial || user.paymentStatus === 'trial');
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+
   const tier = getTierFromScore(user.targetScore);
   const readingData: ReadingTestSet = getReadingTestSet(tier);
   const listeningData: ListeningTestSet = getListeningTestSet(tier);
@@ -69,8 +75,9 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
   const [audioProgress, setAudioProgress] = useState(0);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Time limits: Reading = 20 mins, Listening = 25 mins, Writing = 40 mins
-  const initialTime = moduleType === 'writing' ? 2400 : moduleType === 'reading' ? 1200 : 1500;
+  // Time limits: Trial is strictly 2 minutes (120 secs); Regular is Reading = 20 mins, Listening = 25 mins, Writing = 40 mins
+  const regularTime = moduleType === 'writing' ? 2400 : moduleType === 'reading' ? 1200 : 1500;
+  const initialTime = isTrial ? 120 : regularTime;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isFinished, setIsFinished] = useState(false);
   const [scoreStats, setScoreStats] = useState<{
@@ -92,6 +99,15 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          if (isTrial) {
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+            }
+            setIsPlayingAudio(false);
+            sound.playWrong();
+            setShowTrialExpiredModal(true);
+            return 0;
+          }
           handleSubmitExam();
           return 0;
         }
@@ -99,7 +115,7 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [isFinished]);
+  }, [isFinished, isTrial]);
 
   // Clean up speech synthesis on unmount
   useEffect(() => {
@@ -284,11 +300,36 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isTrial && (
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShowTrialExpiredModal(true);
+                }}
+                className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-[11px] shadow-xs flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3 text-amber-200 animate-spin" />
+                <span>{lang === 'bn' ? 'সাবস্ক্রিপশন নিন' : 'Subscribe'}</span>
+              </button>
+            )}
+
             {!isFinished && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 text-slate-950 rounded-xl font-mono text-xs font-black shadow-sm">
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-xl font-mono text-xs font-black shadow-sm ${
+                  isTrial
+                    ? 'bg-amber-400 text-slate-950 border border-amber-300 ring-2 ring-amber-400/40'
+                    : 'bg-amber-400 text-slate-950'
+                }`}
+              >
                 <Clock className="w-3.5 h-3.5" />
                 <span>{formatTime(timeLeft)}</span>
+                {isTrial && (
+                  <span className="text-[9px] font-sans font-black uppercase tracking-tight bg-slate-950 text-amber-300 px-1 rounded-sm">
+                    {lang === 'bn' ? 'ট্রায়াল' : 'Trial'}
+                  </span>
+                )}
               </div>
             )}
             <button
@@ -919,6 +960,26 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Trial Expired Subscription Modal */}
+      <TrialSubscriptionModal
+        isOpen={showTrialExpiredModal}
+        onClose={() => {
+          setShowTrialExpiredModal(false);
+          onBack();
+        }}
+        onSelectPlanAndProceed={(planId) => {
+          setShowTrialExpiredModal(false);
+          if (onSubscribe) {
+            onSubscribe(planId);
+          } else {
+            onBack();
+          }
+        }}
+        lang={lang}
+        sectionName={moduleType}
+        allowDismiss={true}
+      />
     </div>
   );
 };

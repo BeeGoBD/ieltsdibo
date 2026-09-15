@@ -37,6 +37,7 @@ interface LandingScreenProps {
   lang?: AppLanguage;
   onToggleLanguage?: () => void;
   onStart: () => void;
+  onStartTrial?: () => void;
   onLogin?: () => void;
   onDirectDemoLogin?: () => void;
   onExploreBandGuide?: () => void;
@@ -163,6 +164,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   lang = 'bn',
   onToggleLanguage,
   onStart,
+  onStartTrial,
   onLogin,
   onDirectDemoLogin,
   onExploreBandGuide,
@@ -374,10 +376,10 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
                 <button
                   onClick={() => setShowTutorial(true)}
-                  className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0A2540] font-extrabold text-xs sm:text-sm border border-slate-300 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0A2540] font-extrabold text-xs sm:text-sm border-2 border-slate-300 hover:border-amber-400 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer group"
                 >
-                  <PlayCircle className="w-4 h-4 text-rose-600" />
-                  <span>{isBn ? 'কীভাবে পরীক্ষা দিতে হয়? (ভিডিও)' : 'Watch How It Works'}</span>
+                  <PlayCircle className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
+                  <span>{isBn ? 'কীভাবে পরীক্ষা দিতে হয়? (ভিডিও ও ফ্রি ট্রায়াল)' : 'Watch How It Works (Video & Trial)'}</span>
                 </button>
               </div>
 
@@ -952,10 +954,17 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         </div>
       </footer>
 
-      {/* Video & Platform Tutorial Modal */}
+      {/* Video & Platform Tutorial Modal with Free Trial Trigger */}
       <TutorialModal
         isOpen={showTutorial}
         onClose={() => setShowTutorial(false)}
+        lang={lang}
+        onStartTrial={() => {
+          setShowTutorial(false);
+          if (onStartTrial) {
+            onStartTrial();
+          }
+        }}
         onStartExam={() => {
           setShowTutorial(false);
           onStart();

@@ -339,6 +339,10 @@ class SoundEngine {
     } catch (e) {}
   }
 
+  public playWrong() {
+    this.playError();
+  }
+
   /**
    * 5. Duolingo Lesson Complete / High-Score Fanfare
    * Triumphant 5-note brassy chime + sustained bell power chord

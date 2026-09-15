@@ -24,6 +24,7 @@ interface FullMockExamViewProps {
   onBack: () => void;
   onExamComplete: (record: ExamRecord) => void;
   onViewFullReport?: (record: ExamRecord) => void;
+  onSubscribe?: (planId: string) => void;
 }
 
 export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
@@ -32,6 +33,7 @@ export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
   onBack,
   onExamComplete,
   onViewFullReport,
+  onSubscribe,
 }) => {
   // Stages: 'intro' | 'listening' | 'reading' | 'writing' | 'speaking' | 'completed'
   const [currentStage, setCurrentStage] = useState<
@@ -188,6 +190,7 @@ export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
           lang={lang}
           onBack={onBack}
           onExamComplete={(rec) => handleModuleFinished('listening', rec)}
+          onSubscribe={onSubscribe}
         />
       ) : currentStage === 'reading' ? (
         <ExamPageView
@@ -196,6 +199,7 @@ export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
           lang={lang}
           onBack={onBack}
           onExamComplete={(rec) => handleModuleFinished('reading', rec)}
+          onSubscribe={onSubscribe}
         />
       ) : currentStage === 'writing' ? (
         <ExamPageView
@@ -204,6 +208,7 @@ export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
           lang={lang}
           onBack={onBack}
           onExamComplete={(rec) => handleModuleFinished('writing', rec)}
+          onSubscribe={onSubscribe}
         />
       ) : currentStage === 'speaking' ? (
         <SpeakingExamPageView
@@ -211,6 +216,7 @@ export const FullMockExamView: React.FC<FullMockExamViewProps> = ({
           lang={lang}
           onBack={onBack}
           onExamComplete={(rec) => handleModuleFinished('speaking', rec)}
+          onSubscribe={onSubscribe}
         />
       ) : (
         /* FULL MOCK COMPLETED: OFFICIAL CUMULATIVE TRF */

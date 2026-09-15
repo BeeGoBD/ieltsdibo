@@ -6,14 +6,19 @@ interface TutorialModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStartExam: () => void;
+  onStartTrial?: () => void;
+  lang?: 'bn' | 'en';
 }
 
 export const TutorialModal: React.FC<TutorialModalProps> = ({
   isOpen,
   onClose,
   onStartExam,
+  onStartTrial,
+  lang = 'bn',
 }) => {
   if (!isOpen) return null;
+  const isBn = lang === 'bn';
 
   return (
     <AnimatePresence>
@@ -53,10 +58,56 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                 <div className="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 mb-3">
                   <PlayCircle className="w-8 h-8 fill-current" />
                 </div>
-                <span className="text-white font-bold text-sm">ভিডিও টিউটোরিয়াল দেখুন (YouTube)</span>
-                <span className="text-sky-300 text-xs mt-1">IELTS DIBO (আইলস দিবো) প্ল্যাটফর্মে মক টেস্ট দেওয়ার পূর্ণাঙ্গ নিয়ম (৩ মিনিট)</span>
+                <span className="text-white font-bold text-sm">
+                  {isBn ? 'ভিডিও টিউটোরিয়াল দেখুন (YouTube)' : 'Watch Video Tutorial (YouTube)'}
+                </span>
+                <span className="text-sky-300 text-xs mt-1">
+                  {isBn
+                    ? 'IELTS DIBO (আইলস দিবো) প্ল্যাটফর্মে মক টেস্ট দেওয়ার পূর্ণাঙ্গ নিয়ম (৩ মিনিট)'
+                    : 'Complete guide on how to take mock exams on IELTS DIBO (3 mins)'}
+                </span>
               </div>
             </div>
+
+            {/* Trial Callout: Experience After-Subscription Features for 2 Minutes FREE */}
+            {onStartTrial && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/20 to-orange-500/15 border-2 border-amber-400/80 shadow-md space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+                    🎁
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-[#0A2540]">
+                      {isBn
+                        ? 'সাবস্ক্রিপশনের পর কী কী সুবিধা পাবেন? ২ মিনিটের ফ্রি ট্রায়াল দিন!'
+                        : 'Explore All Subscribed Features: 2-Minute Free Trial!'}
+                    </h4>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                      {isBn
+                        ? 'কোনো সাবস্ক্রিপশন ফি বা পেমেন্ট ছাড়াই একটি অ্যাকাউন্ট খুলুন এবং ২ মিনিট সবগুলো ফিচার (ক্যামব্রিজ টেস্ট, স্পিকিং, TRF) চালিয়ে দেখুন।'
+                        : 'Create an account without purchasing any subscription. You can use all subscriber features for 2 minutes.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onStartTrial();
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#0A2540] to-sky-900 hover:from-sky-900 hover:to-sky-950 text-white font-black text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-sky-400/30 active:scale-98"
+                >
+                  <span className="text-amber-400">✨</span>
+                  <span>
+                    {isBn
+                      ? 'বিনামূল্যে ২ মিনিটের ট্রায়াল শুরু করুন (নো পেমেন্ট)'
+                      : 'Start 2-Min Free Trial (No Payment Required)'}
+                  </span>
+                  <Award className="w-4 h-4 text-amber-400" />
+                </button>
+              </div>
+            )}
 
             {/* Step-by-Step Instructions */}
             <div className="space-y-3">
@@ -110,23 +161,39 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           </div>
 
           {/* Modal Footer CTA */}
-          <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
             <button
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
             >
-              পরে দেখব
+              {isBn ? 'বন্ধ করুন' : 'Close'}
             </button>
-            <button
-              onClick={() => {
-                onClose();
-                onStartExam();
-              }}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF5A36] hover:bg-[#E04B2A] text-white shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5"
-            >
-              <span>এখনই শুরু করুন</span>
-              <Award className="w-3.5 h-3.5" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {onStartTrial && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onStartTrial();
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0A2540] hover:bg-sky-950 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-sky-400/30"
+                >
+                  <span className="text-amber-400">🎁</span>
+                  <span>{isBn ? '২ মিনিট ফ্রি ট্রায়াল' : '2-Min Free Trial'}</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  onClose();
+                  onStartExam();
+                }}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF5A36] hover:bg-[#E04B2A] text-white shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>{isBn ? 'রেগুলার শুরু করুন' : 'Start Mock Exam'}</span>
+                <Award className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

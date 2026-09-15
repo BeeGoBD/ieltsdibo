@@ -51,7 +51,9 @@ export interface UserProfile {
   weakness: string;
   subscriptionPlanId: string;
   subscriptionPlanTitle: string;
-  paymentStatus: 'pending' | 'approved' | 'rejected';
+  paymentStatus: 'pending' | 'approved' | 'rejected' | 'trial';
+  isTrial?: boolean;
+  trialStartedAt?: string;
   rejectionReason?: string;
   approvalDate?: string;
   expiryDate?: string;

@@ -19,6 +19,7 @@ interface SignupScreenProps {
   onBack: () => void;
   onNext: () => void;
   onGoToLogin?: () => void;
+  isTrial?: boolean;
 }
 
 export const SignupScreen: React.FC<SignupScreenProps> = ({
@@ -29,6 +30,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
   onBack,
   onNext,
   onGoToLogin,
+  isTrial = false,
 }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showReferralInput, setShowReferralInput] = useState(Boolean(formData.referralCode));
@@ -172,6 +174,26 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         </div>
 
         {/* Clean Form */}
+        {isTrial && (
+          <div className="mt-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border-2 border-amber-400 flex items-center gap-3 shadow-xs">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+              🎁
+            </div>
+            <div>
+              <p className="text-xs font-black text-[#0A2540]">
+                {lang === 'bn'
+                  ? '২ মিনিটের ফ্রি ট্রায়াল অ্যাকাউন্ট (কোনো পেমেন্ট লাগবে না)'
+                  : '2-Minute Free Trial Account (No Payment Required)'}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                {lang === 'bn'
+                  ? 'রেজিস্ট্রেশন শেষে সরাসরি ড্যাশবোর্ড ও সব প্রিমিয়াম ফিচার ২ মিনিট টেস্ট করতে পারবেন।'
+                  : 'Get instant access to test all premium features for 2 minutes without paying.'}
+              </p>
+            </div>
+          </div>
+        )}
+
         <form
           onSubmit={validateAndProceed}
           autoComplete="off"
@@ -350,7 +372,11 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
           onClick={validateAndProceed}
           className="px-7 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer bg-[#FF5A36] hover:bg-[#EA580C] text-white shadow-orange-600/30 border-b-4 border-[#C2410C]"
         >
-          <span>{lang === 'bn' ? 'প্ল্যান নির্বাচন করুন' : 'Select Plan'}</span>
+          <span>
+            {isTrial
+              ? (lang === 'bn' ? 'ফ্রি ট্রায়াল শুরু করুন (২ মিনিট)' : 'Start Free Trial (2 Min)')
+              : (lang === 'bn' ? 'প্ল্যান নির্বাচন করুন' : 'Select Plan')}
+          </span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </footer>

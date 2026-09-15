@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BookOpen,
@@ -52,6 +52,7 @@ import {
 } from '../types';
 import { TongueTwisterTab } from './TongueTwisterTab';
 import { generateIeltsPdf, generateSpecificModulePdf } from '../utils/pdfGenerator';
+import { TrialSubscriptionModal } from './TrialSubscriptionModal';
 
 interface DashboardProps {
   user: UserProfile;
@@ -147,8 +148,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
     user.subscriptionPlanId === 'plan_1day' ||
     Boolean(user.subscriptionPlanTitle?.includes('৯') || user.subscriptionPlanTitle?.includes('9'));
 
+  // Trial Mode State & 2-Minute Timer on Dashboard
+  const isTrialUser = Boolean(user.isTrial || user.paymentStatus === 'trial');
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const [trialDashboardTimeLeft, setTrialDashboardTimeLeft] = useState<number>(() => {
+    if (!isTrialUser) return 120;
+    if (user.trialStartedAt) {
+      const elapsed = Math.floor((Date.now() - new Date(user.trialStartedAt).getTime()) / 1000);
+      return Math.max(0, 120 - elapsed);
+    }
+    return 120;
+  });
+
+  useEffect(() => {
+    if (!isTrialUser) return;
+    const timer = setInterval(() => {
+      setTrialDashboardTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          sound.playWrong();
+          setShowTrialModal(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isTrialUser]);
+
   const handleStartOrRetakeModule = (mod: SkillCategory) => {
-    if (user.paymentStatus !== 'approved') {
+    if (user.paymentStatus !== 'approved' && !isTrialUser) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '🔒 সাবস্ক্রাইবার পারমিশন নোটিশ' : '🔒 Subscriber Permission Required',
@@ -159,7 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       return;
     }
-    if (isExpired) {
+    if (!isTrialUser && isExpired) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '⚠️ সাবস্ক্রিপশন মেয়াদোত্তীর্ণ' : '⚠️ Subscription Expired',
@@ -172,7 +201,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
-    if (currentSessions <= 0) {
+    if (!isTrialUser && currentSessions <= 0) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '⚠️ সেশন কোটা শেষ' : '⚠️ Session Quota Reached',
@@ -198,7 +227,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleStartFullMock = () => {
-    if (user.paymentStatus !== 'approved') {
+    if (user.paymentStatus !== 'approved' && !isTrialUser) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '🔒 সাবস্ক্রাইবার পারমিশন নোটিশ' : '🔒 Subscriber Permission Required',
@@ -209,7 +238,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       return;
     }
-    if (isExpired) {
+    if (!isTrialUser && isExpired) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '⚠️ সাবস্ক্রিপশন মেয়াদোত্তীর্ণ' : '⚠️ Subscription Expired',
@@ -222,7 +251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     const currentSessions = user.availableSessions !== undefined ? user.availableSessions : 10;
-    if (currentSessions <= 0) {
+    if (!isTrialUser && currentSessions <= 0) {
       sound.playError();
       setPermissionNotice({
         title: lang === 'bn' ? '⚠️ সেশন কোটা শেষ' : '⚠️ Session Quota Reached',
@@ -387,6 +416,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
           </div>
         </header>
+
+        {/* Trial Mode Active Banner */}
+        {isTrialUser && (
+          <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white px-4 py-3 text-xs shadow-md border-b border-amber-600">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 shrink-0 text-amber-200 animate-spin" />
+                <div>
+                  <span className="font-black bg-black/25 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider mr-2">
+                    {lang === 'bn' ? 'ফ্রি ট্রায়াল মোড' : 'Free Trial Mode'}
+                  </span>
+                  <span className="font-bold">
+                    {lang === 'bn'
+                      ? `সাবস্ক্রাইবারদের সব ফিচার আনলক রয়েছে (২ মিনিট ট্রায়াল)। বাকি সময়: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`
+                      : `All subscriber features unlocked (2-min trial). Remaining: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    setShowTrialModal(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-[#0A2540] hover:bg-slate-900 text-white font-black text-xs rounded-xl border border-amber-300 shadow-sm cursor-pointer transition-all flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-300" />
+                  <span>{lang === 'bn' ? 'সাবস্ক্রিপশন প্ল্যান দেখুন' : 'View Plans'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pending Verification Notice Bar if not yet approved */}
         {user.paymentStatus === 'pending' && (
@@ -1525,6 +1587,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
           isOpen={isSoundModalOpen}
           onClose={() => setIsSoundModalOpen(false)}
           lang={lang}
+        />
+
+        {/* Trial Expired Subscription Modal */}
+        <TrialSubscriptionModal
+          isOpen={showTrialModal}
+          onClose={() => setShowTrialModal(false)}
+          onSelectPlanAndProceed={(planId) => {
+            setShowTrialModal(false);
+            onNavigateToPage('pricing', { planId });
+          }}
+          lang={lang}
+          sectionName="general"
+          allowDismiss={true}
         />
       </div>
     </div>

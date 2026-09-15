@@ -130,6 +130,15 @@ export default function App() {
 
   const [lang, setLang] = useState<AppLanguage>('bn');
 
+  // Trial Flow flag (when user starts from "how to give exam" trial button)
+  const [isTrialFlow, setIsTrialFlow] = useState<boolean>(() => {
+    return localStorage.getItem('ielts_dibo_v2_trial_flow') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ielts_dibo_v2_trial_flow', isTrialFlow ? 'true' : 'false');
+  }, [isTrialFlow]);
+
   // Registration draft (NO AUTOFILL - completely clean inputs)
   const [signupDraft, setSignupDraft] = useState({
     name: '',
@@ -388,6 +397,22 @@ export default function App() {
     });
   };
 
+  // Handler: Direct Subscription Purchase Flow
+  const handleSelectPlanAndGoToPayment = (planId: string) => {
+    const plan = PLANS.find((p) => p.id === planId) || PLANS[2];
+    const days = plan.id === 'plan_30days' ? 30 : plan.id === 'plan_7days' ? 7 : plan.id === 'plan_3days' ? 3 : 1;
+    const sessions = plan.id === 'plan_30days' ? 10 : plan.id === 'plan_7days' ? 5 : plan.id === 'plan_3days' ? 3 : 1;
+    handleUpdateCurrentUser({
+      subscriptionPlanId: plan.id,
+      subscriptionPlanTitle: `${plan.durationText} (${plan.price} টাকা)`,
+      subscriptionDays: days,
+      totalExamsQuota: plan.totalTests,
+      availableSessions: sessions,
+      dailySessionsQuota: sessions,
+    });
+    setCurrentStep('payment');
+  };
+
   // Handler: Navigate to Dedicated Full Page
   const handleNavigateToPage = (page: PageView, extraData?: any) => {
     if (page === 'transcript_view') {
@@ -395,6 +420,21 @@ export default function App() {
         setSelectedExamForTRF(extraData);
       } else if (exams.length > 0) {
         setSelectedExamForTRF(exams[0]);
+      }
+    }
+    if (extraData?.planId) {
+      const plan = PLANS.find((p) => p.id === extraData.planId);
+      if (plan) {
+        const days = plan.id === 'plan_30days' ? 30 : plan.id === 'plan_7days' ? 7 : plan.id === 'plan_3days' ? 3 : 1;
+        const sessions = plan.id === 'plan_30days' ? 10 : plan.id === 'plan_7days' ? 5 : plan.id === 'plan_3days' ? 3 : 1;
+        handleUpdateCurrentUser({
+          subscriptionPlanId: plan.id,
+          subscriptionPlanTitle: `${plan.durationText} (${plan.price} টাকা)`,
+          subscriptionDays: days,
+          totalExamsQuota: plan.totalTests,
+          availableSessions: sessions,
+          dailySessionsQuota: sessions,
+        });
       }
     }
     setCurrentStep(page as ScreenStep);
@@ -414,6 +454,14 @@ export default function App() {
           lang={lang}
           onToggleLanguage={() => setLang((prev) => (prev === 'bn' ? 'en' : 'bn'))}
           onStart={() => {
+            setIsTrialFlow(false);
+            if (!currentUser.id) {
+              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+            }
+            setCurrentStep('target_score');
+          }}
+          onStartTrial={() => {
+            setIsTrialFlow(true);
             if (!currentUser.id) {
               setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
             }
@@ -497,6 +545,7 @@ export default function App() {
           formData={signupDraft}
           existingUsers={users}
           lang={lang}
+          isTrial={isTrialFlow}
           onUpdateFormData={(data) => {
             setSignupDraft((prev) => ({ ...prev, ...data }));
           }}
@@ -518,6 +567,7 @@ export default function App() {
               return;
             }
 
+            const isTrial = isTrialFlow;
             const newUser: UserProfile = {
               id: 'USR-' + Math.floor(1000 + Math.random() * 9000),
               name: signupDraft.name.trim(),
@@ -526,10 +576,12 @@ export default function App() {
               password: signupDraft.password.trim(),
               targetScore: currentUser.targetScore || '7.5',
               weakness: currentUser.weakness || 'none',
-              subscriptionPlanId: 'plan_30days',
-              subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
-              subscriptionDays: 30,
-              paymentStatus: 'pending',
+              subscriptionPlanId: isTrial ? 'trial_2min' : 'plan_30days',
+              subscriptionPlanTitle: isTrial ? '২ মিনিটের ফ্রি ট্রায়াল' : '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
+              subscriptionDays: isTrial ? 1 : 30,
+              paymentStatus: isTrial ? 'trial' : 'pending',
+              isTrial: isTrial,
+              trialStartedAt: isTrial ? new Date().toISOString() : undefined,
               rollNumber: 'ID-2026-' + Math.floor(1000 + Math.random() * 9000),
               referralCode: 'IELTS' + Math.floor(1000 + Math.random() * 9000),
               referredBy: signupDraft.referralCode.trim(),
@@ -543,7 +595,11 @@ export default function App() {
             };
             setUsers((prev) => [newUser, ...prev]);
             setCurrentUser(newUser);
-            setCurrentStep('pricing');
+            if (isTrial) {
+              setCurrentStep('dashboard');
+            } else {
+              setCurrentStep('pricing');
+            }
           }}
           onGoToLogin={() => setCurrentStep('login')}
         />
@@ -569,7 +625,13 @@ export default function App() {
               });
             }
           }}
-          onBack={() => setCurrentStep('signup')}
+          onBack={() => {
+            if (isTrialFlow) {
+              setCurrentStep('dashboard');
+            } else {
+              setCurrentStep('signup');
+            }
+          }}
           onNext={() => setCurrentStep('payment')}
         />
       );
@@ -585,8 +647,10 @@ export default function App() {
             const days = chosenPlan.id === 'plan_30days' ? 30 : chosenPlan.id === 'plan_7days' ? 7 : chosenPlan.id === 'plan_3days' ? 3 : 1;
 
             handleUpdateCurrentUser({
-              paymentStatus: 'approved',
-              approvalDate: new Date().toISOString(),
+              paymentStatus: 'pending',
+              isTrial: false,
+              trialStartedAt: undefined,
+              approvalDate: undefined,
               expiryDate: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
               paymentMethod: paymentData.method,
               transactionId: paymentData.transactionId,
@@ -594,6 +658,7 @@ export default function App() {
               availableSessions: sessions,
               dailySessionsQuota: sessions,
             });
+            setIsTrialFlow(false);
             setCurrentStep('dashboard');
           }}
           onBack={() => setCurrentStep('pricing')}
@@ -687,6 +752,7 @@ export default function App() {
             setSelectedExamForTRF(rec);
             setCurrentStep('transcript_view');
           }}
+          onSubscribe={handleSelectPlanAndGoToPayment}
         />
       );
 
@@ -703,6 +769,7 @@ export default function App() {
             setSelectedExamForTRF(rec);
             setCurrentStep('transcript_view');
           }}
+          onSubscribe={handleSelectPlanAndGoToPayment}
         />
       );
 
@@ -719,6 +786,7 @@ export default function App() {
             setSelectedExamForTRF(rec);
             setCurrentStep('transcript_view');
           }}
+          onSubscribe={handleSelectPlanAndGoToPayment}
         />
       );
 
@@ -730,6 +798,7 @@ export default function App() {
           lang={lang}
           onBack={() => setCurrentStep('dashboard')}
           onExamComplete={handleExamComplete}
+          onSubscribe={handleSelectPlanAndGoToPayment}
         />
       );
 
@@ -745,14 +814,40 @@ export default function App() {
             setSelectedExamForTRF(rec);
             setCurrentStep('transcript_view');
           }}
+          onSubscribe={handleSelectPlanAndGoToPayment}
         />
       );
 
     default:
       return (
         <LandingScreen
-          onStart={() => setCurrentStep('target_score')}
+          lang={lang}
+          onToggleLanguage={() => setLang((prev) => (prev === 'bn' ? 'en' : 'bn'))}
+          onStart={() => {
+            setIsTrialFlow(false);
+            if (!currentUser.id) {
+              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+            }
+            setCurrentStep('target_score');
+          }}
+          onStartTrial={() => {
+            setIsTrialFlow(true);
+            if (!currentUser.id) {
+              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+            }
+            setCurrentStep('target_score');
+          }}
           onLogin={() => setCurrentStep('login')}
+          onDirectDemoLogin={() => {
+            const nahida =
+              users.find(
+                (u) => u.email?.toLowerCase().trim() === 'nahida09819@gmail.com'
+              ) || createNahidaStudent();
+            setCurrentUser(nahida);
+            setCurrentStep('dashboard');
+          }}
+          onExploreBandGuide={() => setCurrentStep('band_guide')}
+          onExplorePricing={() => setCurrentStep('pricing')}
         />
       );
   }

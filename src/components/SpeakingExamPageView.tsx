@@ -15,17 +15,20 @@ import {
   Check,
   RotateCcw,
   CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserProfile, ExamRecord, AppLanguage } from '../types';
 import { generateSpecificModulePdf } from '../utils/pdfGenerator';
 import { sound } from '../utils/soundEffects';
+import { TrialSubscriptionModal } from './TrialSubscriptionModal';
 
 interface SpeakingExamPageViewProps {
   user: UserProfile;
   lang?: AppLanguage;
   onBack: () => void;
   onExamComplete: (record: ExamRecord) => void;
+  onSubscribe?: (planId: string) => void;
 }
 
 interface ConversationTurn {
@@ -38,7 +41,12 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
   lang = 'bn',
   onBack,
   onExamComplete,
+  onSubscribe,
 }) => {
+  const isTrial = Boolean(user.isTrial || user.paymentStatus === 'trial');
+  const [trialTimeLeft, setTrialTimeLeft] = useState(60); // 1 minute for speaking trial
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+
   // Test Stage: 'intro' | 'interview' | 'evaluating' | 'completed'
   const [stage, setStage] = useState<'intro' | 'interview' | 'evaluating' | 'completed'>('intro');
   const [examPart, setExamPart] = useState<1 | 2 | 3>(1);
@@ -59,6 +67,29 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
   const accumulatedTranscriptRef = useRef<string>('');
   const currentCandidateTranscriptRef = useRef<string>('');
   const isCandidateTurnRef = useRef<boolean>(false);
+
+  // Timer countdown for trial users during interview stage (1 minute limit)
+  useEffect(() => {
+    if (!isTrial || stage !== 'interview') return;
+    const timer = setInterval(() => {
+      setTrialTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+          }
+          try {
+            stopCandidateRecording();
+          } catch (e) {}
+          sound.playWrong();
+          setShowTrialExpiredModal(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isTrial, stage]);
 
   // Result state
   const [evalResult, setEvalResult] = useState<any>(null);
@@ -455,6 +486,32 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {isTrial && (
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setShowTrialExpiredModal(true);
+              }}
+              className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg text-[11px] font-black transition-all cursor-pointer shadow-sm flex items-center gap-1"
+            >
+              <Sparkles className="w-3 h-3 text-amber-200 animate-spin" />
+              <span>{lang === 'bn' ? 'সাবস্ক্রিপশন নিন' : 'Subscribe'}</span>
+            </button>
+          )}
+
+          {isTrial && stage === 'interview' && (
+            <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-400 text-slate-950 rounded-lg font-mono text-xs font-black shadow-sm border border-amber-300 ring-2 ring-amber-400/40">
+              <Clock className="w-3.5 h-3.5" />
+              <span>
+                {Math.floor(trialTimeLeft / 60)}:{(trialTimeLeft % 60).toString().padStart(2, '0')}
+              </span>
+              <span className="text-[9px] uppercase font-sans tracking-tight bg-slate-950 text-amber-300 px-1 rounded-sm">
+                {lang === 'bn' ? '১ মি. ট্রায়াল' : '1m Trial'}
+              </span>
+            </div>
+          )}
+
           {stage === 'interview' && (
             <button
               onClick={() => {
@@ -855,6 +912,26 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Trial Expired Subscription Modal */}
+      <TrialSubscriptionModal
+        isOpen={showTrialExpiredModal}
+        onClose={() => {
+          setShowTrialExpiredModal(false);
+          onBack();
+        }}
+        onSelectPlanAndProceed={(planId) => {
+          setShowTrialExpiredModal(false);
+          if (onSubscribe) {
+            onSubscribe(planId);
+          } else {
+            onBack();
+          }
+        }}
+        lang={lang}
+        sectionName="speaking"
+        allowDismiss={true}
+      />
     </div>
   );
 };
