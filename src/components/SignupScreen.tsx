@@ -127,16 +127,22 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         </button>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-1.5">
-          <div className="h-1.5 w-8 rounded-full bg-[#0A2540]"></div>
-          <div className="h-1.5 w-8 rounded-full bg-[#0A2540]"></div>
-          <div className="h-1.5 w-8 rounded-full bg-[#0A2540]"></div>
-          <div className="h-1.5 w-3 rounded-full bg-slate-200"></div>
-        </div>
-
-        <div className="text-xs font-semibold text-slate-400">
-          {lang === 'bn' ? 'ধাপ ৩ / ৪' : 'Step 3 / 4'}
-        </div>
+        {!isTrial ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-8 rounded-full bg-[#0A2540]"></div>
+              <div className="h-1.5 w-6 rounded-full bg-slate-200"></div>
+            </div>
+            <div className="text-xs font-semibold text-slate-500">
+              {lang === 'bn' ? 'ধাপ ১: রেজিস্ট্রেশন' : 'Step 1: Registration'}
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs font-bold text-amber-800 bg-amber-100 px-3 py-1 rounded-full flex items-center gap-1.5 border border-amber-300">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>{lang === 'bn' ? 'ফ্রি ট্রায়াল রেজিস্ট্রেশন' : 'Free Trial Registration'}</span>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
@@ -182,13 +188,13 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
             <div>
               <p className="text-xs font-black text-[#0A2540]">
                 {lang === 'bn'
-                  ? '২ মিনিটের ফ্রি ট্রায়াল অ্যাকাউন্ট (কোনো পেমেন্ট লাগবে না)'
-                  : '2-Minute Free Trial Account (No Payment Required)'}
+                  ? 'ফ্রি ট্রায়াল অ্যাকাউন্ট (কোনো পেমেন্ট লাগবে না)'
+                  : 'Free Trial Account (No Payment Required)'}
               </p>
               <p className="text-[11px] text-slate-600">
                 {lang === 'bn'
-                  ? 'রেজিস্ট্রেশন শেষে সরাসরি ড্যাশবোর্ড ও সব প্রিমিয়াম ফিচার ২ মিনিট টেস্ট করতে পারবেন।'
-                  : 'Get instant access to test all premium features for 2 minutes without paying.'}
+                  ? 'রেজিস্ট্রেশন সম্পন্ন করে সরাসরি ড্যাশবোর্ডে প্রবেশ করে সব প্রিমিয়াম ফিচার ফ্রি ট্রায়াল ব্যবহার করতে পারবেন।'
+                  : 'Register to immediately enter the dashboard and test all premium features with your free trial.'}
               </p>
             </div>
           </div>
@@ -374,7 +380,7 @@ export const SignupScreen: React.FC<SignupScreenProps> = ({
         >
           <span>
             {isTrial
-              ? (lang === 'bn' ? 'ফ্রি ট্রায়াল শুরু করুন (২ মিনিট)' : 'Start Free Trial (2 Min)')
+              ? (lang === 'bn' ? 'ফ্রি ট্রায়াল শুরু করুন' : 'Start Free Trial')
               : (lang === 'bn' ? 'প্ল্যান নির্বাচন করুন' : 'Select Plan')}
           </span>
           <ArrowRight className="w-4 h-4" />

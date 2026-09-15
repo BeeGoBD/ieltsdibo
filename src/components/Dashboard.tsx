@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Volume2,
   VolumeX,
+  Gamepad2,
 } from 'lucide-react';
 import { sound } from '../utils/soundEffects';
 import { SoundControlModal } from './SoundControlModal';
@@ -51,6 +52,7 @@ import {
   SupportTicket,
 } from '../types';
 import { TongueTwisterTab } from './TongueTwisterTab';
+import { SubwaySynonymRunner } from './SubwaySynonymRunner';
 import { generateIeltsPdf, generateSpecificModulePdf } from '../utils/pdfGenerator';
 import { TrialSubscriptionModal } from './TrialSubscriptionModal';
 
@@ -148,16 +150,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     user.subscriptionPlanId === 'plan_1day' ||
     Boolean(user.subscriptionPlanTitle?.includes('৯') || user.subscriptionPlanTitle?.includes('9'));
 
-  // Trial Mode State & 2-Minute Timer on Dashboard
+  // Trial Mode State & 5-Minute Timer on Dashboard
   const isTrialUser = Boolean(user.isTrial || user.paymentStatus === 'trial');
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialDashboardTimeLeft, setTrialDashboardTimeLeft] = useState<number>(() => {
-    if (!isTrialUser) return 120;
+    if (!isTrialUser) return 300;
     if (user.trialStartedAt) {
       const elapsed = Math.floor((Date.now() - new Date(user.trialStartedAt).getTime()) / 1000);
-      return Math.max(0, 120 - elapsed);
+      return Math.max(0, 300 - elapsed);
     }
-    return 120;
+    return 300;
   });
 
   useEffect(() => {
@@ -176,7 +178,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => clearInterval(timer);
   }, [isTrialUser]);
 
+  const isTrialExpired = Boolean(isTrialUser && trialDashboardTimeLeft <= 0);
+
   const handleStartOrRetakeModule = (mod: SkillCategory) => {
+    if (isTrialExpired) {
+      sound.playError();
+      setShowTrialModal(true);
+      return;
+    }
+
     if (user.paymentStatus !== 'approved' && !isTrialUser) {
       sound.playError();
       setPermissionNotice({
@@ -227,6 +237,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleStartFullMock = () => {
+    if (isTrialExpired) {
+      sound.playError();
+      setShowTrialModal(true);
+      return;
+    }
+
     if (user.paymentStatus !== 'approved' && !isTrialUser) {
       sound.playError();
       setPermissionNotice({
@@ -362,6 +378,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span>{lang === 'bn' ? 'টাং টুইস্টার' : 'Tongue Twisters'}</span>
             </button>
             <button
+              onClick={() => setActiveTab('english_game')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'english_game'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs font-black'
+                  : 'text-sky-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Gamepad2 className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'ইংলিশ গেম' : 'English Game'}</span>
+            </button>
+            <button
               onClick={() => setActiveTab('account')}
               className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'account'
@@ -429,8 +456,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </span>
                   <span className="font-bold">
                     {lang === 'bn'
-                      ? `সাবস্ক্রাইবারদের সব ফিচার আনলক রয়েছে (২ মিনিট ট্রায়াল)। বাকি সময়: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`
-                      : `All subscriber features unlocked (2-min trial). Remaining: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`}
+                      ? `সাবস্ক্রাইবারদের সব ফিচার আনলক রয়েছে (ফ্রি ট্রায়াল)। বাকি সময়: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`
+                      : `All subscriber features unlocked (Free Trial). Remaining: ${Math.floor(trialDashboardTimeLeft / 60)}:${(trialDashboardTimeLeft % 60).toString().padStart(2, '0')}`}
                   </span>
                 </div>
               </div>
@@ -575,6 +602,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span>{lang === 'bn' ? 'টাং টুইস্টার প্র্যাকটিস' : 'Tongue Twister Lab'}</span>
                     </button>
 
+                    {/* English Gaming Zone */}
+                    <button
+                      onClick={() => {
+                        setActiveTab('english_game');
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full p-2.5 rounded-xl flex items-center gap-3 text-slate-700 hover:bg-amber-50 hover:text-amber-950 transition-colors text-left cursor-pointer"
+                    >
+                      <Gamepad2 className="w-4 h-4 text-amber-600" />
+                      <span>{lang === 'bn' ? 'ইংলিশ গেমিং জোন (Subway Runner)' : 'English Game (Subway Runner)'}</span>
+                    </button>
+
                     {/* Previous Exams */}
                     <button
                       onClick={() => {
@@ -648,11 +687,68 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </AnimatePresence>
 
+        {/* Frozen Alert Banner */}
+        {isTrialExpired && (
+          <div className="bg-rose-600 text-white px-4 py-2.5 flex items-center justify-between text-xs font-bold shadow-md z-30 shrink-0">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
+              <span>
+                {lang === 'bn'
+                  ? 'আপনার ৫ মিনিটের ফ্রি ট্রায়াল শেষ হয়েছে। ড্যাশবোর্ড ফ্রিজ করা হয়েছে—পরীক্ষা দিতে সাবস্ক্রিপশন প্ল্যান গ্রহণ করুন।'
+                  : 'Your 5-minute free trial has ended. Dashboard is frozen—subscribe to unlock examinations.'}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                sound.playSelect();
+                setShowTrialModal(true);
+              }}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-3 py-1 rounded-lg text-xs shrink-0 cursor-pointer shadow ml-2"
+            >
+              {lang === 'bn' ? 'সাবস্ক্রাইব করুন' : 'Unlock Now'}
+            </button>
+          </div>
+        )}
+
         {/* Main Tab Content */}
         <main className="flex-1 p-4 overflow-y-auto">
           {/* TAB 1: EXAM CENTER */}
           {activeTab === 'exam_center' && (
-            <div className="space-y-4 pb-28">
+            <div className="space-y-4 pb-28 relative">
+              {isTrialExpired && (
+                <div
+                  onClick={() => {
+                    sound.playError();
+                    setShowTrialModal(true);
+                  }}
+                  className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-30 rounded-3xl flex flex-col items-center justify-center p-6 text-center cursor-pointer border-2 border-rose-500/50 shadow-2xl transition-all"
+                >
+                  <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center mb-3 shadow-lg animate-pulse">
+                    <Lock className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-black text-white">
+                    {lang === 'bn'
+                      ? '🔒 ৫ মিনিটের ফ্রি ট্রায়াল সমাপ্ত — ড্যাশবোর্ড ফ্রিজ করা হয়েছে'
+                      : '🔒 5-Minute Free Trial Ended — Dashboard Frozen'}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-md mt-2 mb-4 leading-relaxed">
+                    {lang === 'bn'
+                      ? 'আপনার ৫ মিনিটের ফ্রি ট্রায়াল সম্পন্ন হয়েছে। নতুন কোনো মডিউল বা ফুল মক টেস্ট শুরু করতে সাবস্ক্রিপশন প্ল্যান গ্রহণ করুন। যেকোনো স্থানে ক্লিক করে আনলক করুন।'
+                      : 'Your 5-minute free trial has ended. Please subscribe to unlock all Cambridge mock tests and continuous evaluation. Click anywhere to subscribe.'}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sound.playSelect();
+                      setShowTrialModal(true);
+                    }}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/30 hover:brightness-110 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Zap className="w-4 h-4 fill-slate-950" />
+                    <span>{lang === 'bn' ? 'সাবস্ক্রিপশন প্ল্যান নিন (Upgrade Plan)' : 'Upgrade Plan Now'}</span>
+                  </button>
+                </div>
+              )}
               {/* Target Band & Prediction Card */}
               <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
                 <div className="flex items-center justify-between">
@@ -1109,6 +1205,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <TongueTwisterTab lang={lang} />
           )}
 
+          {/* TAB 3.5: ENGLISH GAME (SUBWAY SYNONYM RUNNER) */}
+          {activeTab === 'english_game' && (
+            <div className="pb-28">
+              <SubwaySynonymRunner
+                user={user}
+                lang={lang}
+                onSubscribe={() => setShowTrialModal(true)}
+                isTrialExpired={isTrialExpired}
+              />
+            </div>
+          )}
+
           {/* TAB 4: MY ACCOUNT & SUBSCRIPTION STATUS */}
           {activeTab === 'account' && (
             <div className="space-y-4 pb-28">
@@ -1428,6 +1536,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           >
             <Flame className={`w-5 h-5 ${activeTab === 'tongue_twister' ? 'text-[#0A2540]' : 'text-slate-400'}`} />
             <span className="text-[10px]">{lang === 'bn' ? 'টাং টুইস্টার' : 'Twister'}</span>
+          </button>
+
+          {/* Tab 3.5: English Game */}
+          <button
+            onClick={() => setActiveTab('english_game')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'english_game' ? 'text-amber-600 font-black' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Gamepad2 className={`w-5 h-5 ${activeTab === 'english_game' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <span className="text-[10px]">{lang === 'bn' ? 'গেম' : 'Game'}</span>
           </button>
 
           {/* Tab 4: My Account */}

@@ -10,7 +10,7 @@ export type ScreenStep =
   | 'admin'
   | PageView;
 
-export type DashboardTab = 'exam_center' | 'old_exams' | 'tongue_twister' | 'account';
+export type DashboardTab = 'exam_center' | 'old_exams' | 'tongue_twister' | 'english_game' | 'account';
 
 export type PageView = 
   | 'dashboard'

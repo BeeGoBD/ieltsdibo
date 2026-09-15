@@ -44,7 +44,7 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
   onSubscribe,
 }) => {
   const isTrial = Boolean(user.isTrial || user.paymentStatus === 'trial');
-  const [trialTimeLeft, setTrialTimeLeft] = useState(60); // 1 minute for speaking trial
+  const [trialTimeLeft, setTrialTimeLeft] = useState(300); // 5 minutes for speaking trial
   const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
 
   // Test Stage: 'intro' | 'interview' | 'evaluating' | 'completed'
@@ -507,7 +507,7 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
                 {Math.floor(trialTimeLeft / 60)}:{(trialTimeLeft % 60).toString().padStart(2, '0')}
               </span>
               <span className="text-[9px] uppercase font-sans tracking-tight bg-slate-950 text-amber-300 px-1 rounded-sm">
-                {lang === 'bn' ? '১ মি. ট্রায়াল' : '1m Trial'}
+                {lang === 'bn' ? 'ট্রায়াল' : 'Trial'}
               </span>
             </div>
           )}

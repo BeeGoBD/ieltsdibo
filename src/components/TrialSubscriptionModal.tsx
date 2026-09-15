@@ -42,43 +42,43 @@ export const TrialSubscriptionModal: React.FC<TrialSubscriptionModalProps> = ({
     switch (sectionName) {
       case 'speaking':
         return {
-          title: isBn ? 'আপনার ১ মিনিটের স্পিকিং ট্রায়াল সমাপ্ত!' : 'Your 1-Minute Speaking Trial Has Ended!',
+          title: isBn ? 'আপনার ৫ মিনিটের স্পিকিং ট্রায়াল সমাপ্ত!' : 'Your 5-Minute Speaking Trial Has Ended!',
           desc: isBn
             ? 'ড. আলিস্টেয়ার ফিঞ্চের সাথে স্পিকিং সেশনের ট্রায়াল শেষ হয়েছে। সম্পূর্ণ ৩-পার্ট ইন্টারভিউ ও অফিসিয়াল এআই ব্যান্ড স্কোর পেতে এখনই সাবস্ক্রিপশন প্ল্যান গ্রহণ করুন।'
-            : 'The 1-minute voice trial with Dr. Alistair Finch has ended. Subscribe now for the complete 3-part Cambridge interview and instant AI band scoring.',
-          durationBadge: isBn ? '১ মিনিট স্পিকিং ট্রায়াল লিমিট' : '1-Min Speaking Limit',
+            : 'The 5-minute voice trial with Dr. Alistair Finch has ended. Subscribe now for the complete 3-part Cambridge interview and instant AI band scoring.',
+          durationBadge: isBn ? '৫ মিনিট স্পিকিং ট্রায়াল লিমিট' : '5-Min Speaking Limit',
         };
       case 'reading':
         return {
-          title: isBn ? 'আপনার ২ মিনিটের রিডিং ট্রায়াল সমাপ্ত!' : 'Your 2-Minute Reading Trial Has Ended!',
+          title: isBn ? 'আপনার ৫ মিনিটের রিডিং ট্রায়াল সমাপ্ত!' : 'Your 5-Minute Reading Trial Has Ended!',
           desc: isBn
             ? 'রিডিং মডিউলের ট্রায়াল সময় শেষ হয়েছে। পুরো অ্যাকাডেমিক প্যাসেজ সমাধান করতে ও আনলিমিটেড ক্যামব্রিজ টেস্ট দিতে সাবস্ক্রিপশন বেছে নিন।'
-            : 'The 2-minute reading trial has ended. Subscribe to complete the full passage and access unlimited Cambridge reading sets.',
-          durationBadge: isBn ? '২ মিনিট রিডিং ট্রায়াল লিমিট' : '2-Min Reading Limit',
+            : 'The 5-minute reading trial has ended. Subscribe to complete the full passage and access unlimited Cambridge reading sets.',
+          durationBadge: isBn ? '৫ মিনিট রিডিং ট্রায়াল লিমিট' : '5-Min Reading Limit',
         };
       case 'writing':
         return {
-          title: isBn ? 'আপনার ২ মিনিটের রাইটিং ট্রায়াল সমাপ্ত!' : 'Your 2-Minute Writing Trial Has Ended!',
+          title: isBn ? 'আপনার ৫ মিনিটের রাইটিং ট্রায়াল সমাপ্ত!' : 'Your 5-Minute Writing Trial Has Ended!',
           desc: isBn
             ? 'রাইটিং মডিউলের ট্রায়াল সময় শেষ হয়েছে। টাস্ক ১ ও ২ সম্পূর্ণ লিখে এআই ব্যান্ড স্কোর ও ফিডব্যাক পেতে সাবস্ক্রিপশন গ্রহণ করুন।'
-            : 'The 2-minute writing trial has ended. Subscribe to submit full Task 1 & 2 essays and get instant examiner grading.',
-          durationBadge: isBn ? '২ মিনিট রাইটিং ট্রায়াল লিমিট' : '2-Min Writing Limit',
+            : 'The 5-minute writing trial has ended. Subscribe to submit full Task 1 & 2 essays and get instant examiner grading.',
+          durationBadge: isBn ? '৫ মিনিট রাইটিং ট্রায়াল লিমিট' : '5-Min Writing Limit',
         };
       case 'listening':
         return {
-          title: isBn ? 'আপনার ২ মিনিটের লিসেনিং ট্রায়াল সমাপ্ত!' : 'Your 2-Minute Listening Trial Has Ended!',
+          title: isBn ? 'আপনার ৫ মিনিটের লিসেনিং ট্রায়াল সমাপ্ত!' : 'Your 5-Minute Listening Trial Has Ended!',
           desc: isBn
             ? 'লিসেনিং মডিউলের ট্রায়াল সময় শেষ হয়েছে। পুরো ৪টি সেকশনের ব্রিটিশ অডিও শুনে পরীক্ষা সম্পন্ন করতে এখনই সাবস্ক্রাইব করুন।'
-            : 'The 2-minute listening trial has ended. Subscribe to hear all 4 audio sections and full audio recordings.',
-          durationBadge: isBn ? '২ মিনিট লিসেনিং ট্রায়াল লিমিট' : '2-Min Listening Limit',
+            : 'The 5-minute listening trial has ended. Subscribe to hear all 4 audio sections and full audio recordings.',
+          durationBadge: isBn ? '৫ মিনিট লিসেনিং ট্রায়াল লিমিট' : '5-Min Listening Limit',
         };
       default:
         return {
-          title: isBn ? 'আপনার ফ্রি ট্রায়াল লিমিট শেষ হয়েছে!' : 'Your Free Trial Limit Has Ended!',
+          title: isBn ? 'আপনার ৫ মিনিটের ফ্রি ট্রায়াল সমাপ্ত!' : 'Your 5-Minute Free Trial Has Ended!',
           desc: isBn
-            ? 'আপনি প্ল্যাটফর্মের ফ্রি ট্রায়াল উপভোগ করেছেন। আনলিমিটেড মক টেস্ট, এআই স্পিকিং ও সাইন করা TRF সার্টিফিকেট পেতে সাবস্ক্রিপশন বেছে নিন।'
-            : 'You have completed your free trial exploration. Choose a plan to unlock unlimited Cambridge mock exams and certified TRF downloads.',
-          durationBadge: isBn ? 'ফ্রি ট্রায়াল লিমিট শেষ' : 'Free Trial Over',
+            ? 'আপনার ৫ মিনিটের ফ্রি ট্রায়াল সেশন শেষ হয়েছে। ড্যাশবোর্ডের সব ক্যামব্রিজ মক টেস্ট, এআই স্পিকিং ও সাইন করা TRF সার্টিফিকেট আনলক রাখতে সাবস্ক্রিপশন বেছে নিন।'
+            : 'Your 5-minute free trial has ended. Choose a subscription plan to unlock unlimited Cambridge mock exams and certified TRF downloads.',
+          durationBadge: isBn ? '৫ মিনিট ট্রায়াল লিমিট শেষ' : '5-Min Trial Ended',
         };
     }
   };

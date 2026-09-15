@@ -456,16 +456,16 @@ export default function App() {
           onStart={() => {
             setIsTrialFlow(false);
             if (!currentUser.id) {
-              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+              setCurrentUser((prev) => ({ ...prev, targetScore: '7.5', weakness: 'none' }));
             }
-            setCurrentStep('target_score');
+            setCurrentStep('signup');
           }}
           onStartTrial={() => {
             setIsTrialFlow(true);
             if (!currentUser.id) {
-              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+              setCurrentUser((prev) => ({ ...prev, targetScore: '7.5', weakness: 'none' }));
             }
-            setCurrentStep('target_score');
+            setCurrentStep('signup');
           }}
           onLogin={() => setCurrentStep('login')}
           onDirectDemoLogin={() => {
@@ -549,7 +549,9 @@ export default function App() {
           onUpdateFormData={(data) => {
             setSignupDraft((prev) => ({ ...prev, ...data }));
           }}
-          onBack={() => setCurrentStep('weakness')}
+          onBack={() => {
+            setCurrentStep('landing');
+          }}
           onNext={() => {
             // Register or update user in database with strict unique credentials
             const emailNorm = signupDraft.email.trim().toLowerCase();
@@ -576,8 +578,8 @@ export default function App() {
               password: signupDraft.password.trim(),
               targetScore: currentUser.targetScore || '7.5',
               weakness: currentUser.weakness || 'none',
-              subscriptionPlanId: isTrial ? 'trial_2min' : 'plan_30days',
-              subscriptionPlanTitle: isTrial ? '২ মিনিটের ফ্রি ট্রায়াল' : '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
+              subscriptionPlanId: isTrial ? 'trial_5min' : 'plan_30days',
+              subscriptionPlanTitle: isTrial ? '৫ মিনিট ফ্রি ট্রায়াল' : '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
               subscriptionDays: isTrial ? 1 : 30,
               paymentStatus: isTrial ? 'trial' : 'pending',
               isTrial: isTrial,
@@ -826,16 +828,16 @@ export default function App() {
           onStart={() => {
             setIsTrialFlow(false);
             if (!currentUser.id) {
-              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+              setCurrentUser((prev) => ({ ...prev, targetScore: '7.5', weakness: 'none' }));
             }
-            setCurrentStep('target_score');
+            setCurrentStep('signup');
           }}
           onStartTrial={() => {
             setIsTrialFlow(true);
             if (!currentUser.id) {
-              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+              setCurrentUser((prev) => ({ ...prev, targetScore: '7.5', weakness: 'none' }));
             }
-            setCurrentStep('target_score');
+            setCurrentStep('signup');
           }}
           onLogin={() => setCurrentStep('login')}
           onDirectDemoLogin={() => {

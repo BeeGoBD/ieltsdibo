@@ -75,9 +75,9 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
   const [audioProgress, setAudioProgress] = useState(0);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Time limits: Trial is strictly 2 minutes (120 secs); Regular is Reading = 20 mins, Listening = 25 mins, Writing = 40 mins
+  // Time limits: Trial is strictly 5 minutes (300 secs); Regular is Reading = 20 mins, Listening = 25 mins, Writing = 40 mins
   const regularTime = moduleType === 'writing' ? 2400 : moduleType === 'reading' ? 1200 : 1500;
-  const initialTime = isTrial ? 120 : regularTime;
+  const initialTime = isTrial ? 300 : regularTime;
   const [timeLeft, setTimeLeft] = useState(initialTime);
   const [isFinished, setIsFinished] = useState(false);
   const [scoreStats, setScoreStats] = useState<{

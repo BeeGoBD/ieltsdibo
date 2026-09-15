@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, PlayCircle, CheckCircle2, ShieldCheck, Award, Smartphone } from 'lucide-react';
+import { X, Sparkles, CheckCircle2, ShieldCheck, Award, ArrowRight, Zap, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface TutorialModalProps {
@@ -32,88 +32,73 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
           {/* Modal Header */}
           <div className="bg-[#0A2540] text-white px-5 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
-              <PlayCircle className="w-5 h-5 text-amber-400" />
+              <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+                <Sparkles className="w-4 h-4 text-slate-950" />
+              </div>
               <div>
-                <h3 className="font-bold text-base text-white">কীভাবে পরীক্ষা দেবেন? নির্দেশিকা</h3>
-                <p className="text-xs text-sky-200">মাত্র ৩টি সহজ ধাপে সম্পূর্ণ ফ্রি টিউটোরিয়াল</p>
+                <h3 className="font-bold text-base text-white">
+                  {isBn ? 'ফ্রি ট্রায়াল পরীক্ষা দিন' : 'Give Free Trial Exam'}
+                </h3>
+                <p className="text-xs text-sky-200">
+                  {isBn
+                    ? 'কোনো পেমেন্ট ছাড়াই সরাসরি রেজিস্ট্রেশন করে পরীক্ষা দিন'
+                    : 'Register directly without payment and begin your free trial'}
+                </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Modal Body */}
-          <div className="p-5 overflow-y-auto space-y-5 text-slate-800">
-            {/* Embedded Video Mockup with play simulation */}
-            <div className="relative rounded-2xl overflow-hidden bg-slate-900 aspect-video shadow-md group cursor-pointer border border-slate-700 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
-              {/* Background preview image */}
-              <div className="absolute inset-0 bg-[radial-gradient(#1e3a8a_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
-              
-              <div className="relative z-20 flex flex-col items-center text-center px-4">
-                <div className="w-14 h-14 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 mb-3">
-                  <PlayCircle className="w-8 h-8 fill-current" />
+          <div className="p-5 overflow-y-auto space-y-4 text-slate-800">
+            {/* Direct Free Trial Callout Banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/20 to-orange-500/15 border-2 border-amber-400/80 shadow-sm space-y-3">
+              <div className="flex items-start gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+                  <Zap className="w-5 h-5 fill-white" />
                 </div>
-                <span className="text-white font-bold text-sm">
-                  {isBn ? 'ভিডিও টিউটোরিয়াল দেখুন (YouTube)' : 'Watch Video Tutorial (YouTube)'}
-                </span>
-                <span className="text-sky-300 text-xs mt-1">
-                  {isBn
-                    ? 'IELTS DIBO (আইলস দিবো) প্ল্যাটফর্মে মক টেস্ট দেওয়ার পূর্ণাঙ্গ নিয়ম (৩ মিনিট)'
-                    : 'Complete guide on how to take mock exams on IELTS DIBO (3 mins)'}
-                </span>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-[#0A2540]">
+                    {isBn
+                      ? 'টার্গেট স্কোর ছাড়াই সরাসরি রেজিস্ট্রেশন ও ফ্রি ট্রায়াল'
+                      : 'Direct Registration with Free Trial — No Target Score Required'}
+                  </h4>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    {isBn
+                      ? 'এখন আলাদা করে কোনো টার্গেট স্কোর নির্বাচন করার প্রয়োজন নেই। শুধুমাত্র আপনার নাম ও জিমেইল দিয়ে সাথে সাথে রেজিস্ট্রেশন সম্পন্ন করে ফ্রি ট্রায়াল পরীক্ষা শুরু করতে পারবেন।'
+                      : 'You do not need to select target score anymore. Register directly with your basic credentials and dive straight into the authentic exam simulation.'}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Trial Callout: Experience After-Subscription Features for 2 Minutes FREE */}
-            {onStartTrial && (
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/20 to-orange-500/15 border-2 border-amber-400/80 shadow-md space-y-2.5">
-                <div className="flex items-start gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
-                    🎁
-                  </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-black text-[#0A2540]">
-                      {isBn
-                        ? 'সাবস্ক্রিপশনের পর কী কী সুবিধা পাবেন? ২ মিনিটের ফ্রি ট্রায়াল দিন!'
-                        : 'Explore All Subscribed Features: 2-Minute Free Trial!'}
-                    </h4>
-                    <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
-                      {isBn
-                        ? 'কোনো সাবস্ক্রিপশন ফি বা পেমেন্ট ছাড়াই একটি অ্যাকাউন্ট খুলুন এবং ২ মিনিট সবগুলো ফিচার (ক্যামব্রিজ টেস্ট, স্পিকিং, TRF) চালিয়ে দেখুন।'
-                        : 'Create an account without purchasing any subscription. You can use all subscriber features for 2 minutes.'}
-                    </p>
-                  </div>
-                </div>
-
+              {onStartTrial && (
                 <button
                   type="button"
                   onClick={() => {
                     onClose();
                     onStartTrial();
                   }}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#0A2540] to-sky-900 hover:from-sky-900 hover:to-sky-950 text-white font-black text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-sky-400/30 active:scale-98"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#FF5A36] to-[#EA580C] hover:from-[#EA580C] hover:to-[#C2410C] text-white font-black text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-orange-400/30 active:scale-98"
                 >
-                  <span className="text-amber-400">✨</span>
+                  <Sparkles className="w-4 h-4 text-amber-200" />
                   <span>
-                    {isBn
-                      ? 'বিনামূল্যে ২ মিনিটের ট্রায়াল শুরু করুন (নো পেমেন্ট)'
-                      : 'Start 2-Min Free Trial (No Payment Required)'}
+                    {isBn ? 'ফ্রি ট্রায়াল পরীক্ষা দিন' : 'Give Free Trial Exam'}
                   </span>
-                  <Award className="w-4 h-4 text-amber-400" />
+                  <ArrowRight className="w-4 h-4" />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Step-by-Step Instructions */}
-            <div className="space-y-3">
-              <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-sky-600" />
-                ধাপে ধাপে সহজে শুরু করুন:
+            {/* Step-by-Step Direct Registration Flow */}
+            <div className="space-y-2.5">
+              <h4 className="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-sky-600" />
+                <span>{isBn ? '৩টি ধাপে দ্রুত শুরু করুন:' : '3 Quick Steps to Start:'}</span>
               </h4>
 
               <div className="flex items-start gap-3 p-3 rounded-2xl bg-sky-50/70 border border-sky-100">
@@ -121,8 +106,14 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                   ১
                 </div>
                 <div>
-                  <p className="font-semibold text-xs text-slate-900">টার্গেট স্কোর ও দুর্বলতা নির্বাচন</p>
-                  <p className="text-[11px] text-slate-600">আপনার কাঙ্ক্ষিত স্কোর (যেমন: ৭.৫ বা ৮.০) ও যে মডিউলে প্রস্তুতি দরকার তা সিলেক্ট করুন।</p>
+                  <p className="font-bold text-xs text-slate-900">
+                    {isBn ? 'সরাসরি রেজিস্ট্রেশন' : 'Direct Registration'}
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {isBn
+                      ? 'টার্গেট স্কোর ছাড়াই শুধুমাত্র নাম, জিমেইল ও পাসওয়ার্ড দিয়ে সরাসরি একাউন্ট তৈরি করুন।'
+                      : 'No target score selection step; sign up immediately with your name and Gmail.'}
+                  </p>
                 </div>
               </div>
 
@@ -131,8 +122,14 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                   ২
                 </div>
                 <div>
-                  <p className="font-semibold text-xs text-slate-900">মাত্র ৯ টাকায় প্ল্যান অ্যাক্টিভেশন</p>
-                  <p className="text-[11px] text-slate-600">বিকাশ, নগদ বা রকেটে ট্রানজ্যাকশন আইডি দিয়ে পেমেন্ট জমা দিন। আমাদের টিম দ্রুত ভেরিফাই করে দেবে।</p>
+                  <p className="font-bold text-xs text-slate-900">
+                    {isBn ? 'ফ্রি ট্রায়ালে সব ফিচারে প্রবেশ' : 'Full Free Trial Access'}
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {isBn
+                      ? 'লিসেনিং, রিডিং, রাইটিং এবং ড. ফিঞ্চের লাইভ স্পিকিং ইন্টারভিউ টেস্ট শুরু করুন।'
+                      : 'Experience authentic Listening, Reading, Task 2 Writing, and Speaking AI interviews.'}
+                  </p>
                 </div>
               </div>
 
@@ -141,21 +138,27 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                   ৩
                 </div>
                 <div>
-                  <p className="font-semibold text-xs text-slate-900">লাইভ পরীক্ষা ও অফিসিয়াল রেজাল্ট PDF</p>
-                  <p className="text-[11px] text-slate-600">ক্যামব্রিজ স্ট্যান্ডার্ড ৪টি মডিউলের টেস্ট দিন এবং পরীক্ষা শেষে প্রফেশনাল সাইন করা রেজাল্ট শিট ডাউনলোড করুন।</p>
+                  <p className="font-bold text-xs text-slate-900">
+                    {isBn ? 'ইনস্ট্যান্ট ক্যামব্রিজ রেজাল্ট ও ফিডব্যাক' : 'Instant Cambridge Band & Diagnostics'}
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-0.5">
+                    {isBn
+                      ? 'অফিসিয়াল ক্যামব্রিজ রুব্রিক অনুযায়ী ব্যান্ড স্কোর ও বিশদ ভুল সংশোধনের বিশ্লেষণ পান।'
+                      : 'Receive comprehensive band scores and detailed breakdown aligned with Cambridge rubrics.'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Trust badges */}
+            {/* Feature Highlights */}
             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 text-[11px] text-slate-700 font-medium">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>অরিজিনাল ক্যামব্রিজ প্যাটার্ন</span>
+                <span>{isBn ? 'আসল ক্যামব্রিজ স্ট্যান্ডার্ড' : 'Authentic Cambridge Standard'}</span>
               </div>
               <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 text-[11px] text-slate-700 font-medium">
                 <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0" />
-                <span>২৪ ঘণ্টা হেল্প সাপোর্ট</span>
+                <span>{isBn ? 'লাইভ এআই স্পিকিং টেস্ট' : 'Live Speaking Examiner'}</span>
               </div>
             </div>
           </div>
@@ -176,10 +179,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                     onClose();
                     onStartTrial();
                   }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0A2540] hover:bg-sky-950 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-sky-400/30"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF5A36] hover:bg-[#E04B2A] text-white shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span className="text-amber-400">🎁</span>
-                  <span>{isBn ? '২ মিনিট ফ্রি ট্রায়াল' : '2-Min Free Trial'}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                  <span>{isBn ? 'ফ্রি ট্রায়াল পরীক্ষা দিন' : 'Give Free Trial Exam'}</span>
                 </button>
               )}
 
@@ -188,10 +191,10 @@ export const TutorialModal: React.FC<TutorialModalProps> = ({
                   onClose();
                   onStartExam();
                 }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF5A36] hover:bg-[#E04B2A] text-white shadow-md shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0A2540] hover:bg-sky-950 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <span>{isBn ? 'রেগুলার শুরু করুন' : 'Start Mock Exam'}</span>
-                <Award className="w-3.5 h-3.5" />
+                <span>{isBn ? 'সরাসরি রেজিস্ট্রেশন' : 'Direct Register'}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
               </button>
             </div>
           </div>

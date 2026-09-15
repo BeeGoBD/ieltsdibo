@@ -375,11 +375,15 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setShowTutorial(true)}
+                  onClick={() => {
+                    if (onStartTrial) {
+                      onStartTrial();
+                    }
+                  }}
                   className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-white hover:bg-slate-50 text-[#0A2540] font-extrabold text-xs sm:text-sm border-2 border-slate-300 hover:border-amber-400 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer group"
                 >
-                  <PlayCircle className="w-4 h-4 text-rose-600 group-hover:scale-110 transition-transform" />
-                  <span>{isBn ? 'কীভাবে পরীক্ষা দিতে হয়? (ভিডিও ও ফ্রি ট্রায়াল)' : 'Watch How It Works (Video & Trial)'}</span>
+                  <Sparkles className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                  <span>{isBn ? 'ফ্রি ট্রায়াল পরীক্ষা দিন' : 'Give Free Trial Exam'}</span>
                 </button>
               </div>
 
