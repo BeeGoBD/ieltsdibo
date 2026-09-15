@@ -30,8 +30,16 @@ import {
   Zap,
   AlertTriangle,
   Lock,
+  Copy,
+  Check,
+  Sparkles,
+  Sliders,
+  ChevronRight,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { sound } from '../utils/soundEffects';
+import { SoundControlModal } from './SoundControlModal';
 import {
   UserProfile,
   ExamRecord,
@@ -75,8 +83,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [activeTab, setActiveTab] = useState<DashboardTab>('exam_center');
   const [isChangingScore, setIsChangingScore] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSoundModalOpen, setIsSoundModalOpen] = useState(false);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
   const [resetSuccessToast, setResetSuccessToast] = useState(false);
+  const [copiedReferral, setCopiedReferral] = useState(false);
+
+  const copyReferralCode = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(user.referralCode);
+      setCopiedReferral(true);
+      sound.playSuccess();
+      setTimeout(() => setCopiedReferral(false), 2200);
+    }
+  };
   const [permissionNotice, setPermissionNotice] = useState<{
     title: string;
     message: string;
@@ -166,12 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     sound.playSuccess();
-    // Deduct 1 session on starting any exam
-    onUpdateUser({
-      availableSessions: Math.max(0, currentSessions - 1),
-      examsCompleted: (user.examsCompleted || 0) + 1,
-    });
-
+    // Do not deduct session on exam start; session is counted upon completing exam cycle or reset
     if (mod === 'speaking') {
       onNavigateToPage('speaking_exam');
     } else if (mod === 'reading') {
@@ -221,12 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
     sound.playSuccess();
-    // Deduct 1 session on starting full mock
-    onUpdateUser({
-      availableSessions: Math.max(0, currentSessions - 1),
-      examsCompleted: (user.examsCompleted || 0) + 1,
-    });
-
+    // Starting full mock does not deduct session; deducted on completion
     onNavigateToPage('full_mock_exam');
   };
 
@@ -291,44 +300,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* Desktop Navigation Tabs */}
           <div className="hidden md:flex items-center gap-1 bg-sky-950/60 p-1 rounded-2xl border border-white/10 text-xs font-bold">
             <button
-              onClick={() => setActiveTab('exam_modules')}
-              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                activeTab === 'exam_modules'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+              onClick={() => setActiveTab('exam_center')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'exam_center'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs font-black'
                   : 'text-sky-200 hover:text-white hover:bg-white/5'
               }`}
             >
-              {lang === 'bn' ? 'মক টেস্ট সেন্টার' : 'Mock Tests'}
+              <Award className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'মক টেস্ট সেন্টার' : 'Exam Center'}</span>
             </button>
             <button
               onClick={() => setActiveTab('old_exams')}
-              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'old_exams'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs font-black'
                   : 'text-sky-200 hover:text-white hover:bg-white/5'
               }`}
             >
-              {lang === 'bn' ? 'পূর্ববর্তী পরীক্ষা ও TRF' : 'Exam Records'}
+              <History className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'পরীক্ষার রেকর্ড ও TRF' : 'Exam Records'}</span>
             </button>
             <button
               onClick={() => setActiveTab('tongue_twister')}
-              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'tongue_twister'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs font-black'
                   : 'text-sky-200 hover:text-white hover:bg-white/5'
               }`}
             >
-              {lang === 'bn' ? 'টাং টুইস্টার' : 'Tongue Twisters'}
+              <Flame className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'টাং টুইস্টার' : 'Tongue Twisters'}</span>
             </button>
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-                activeTab === 'profile'
-                  ? 'bg-amber-400 text-slate-950 shadow-xs'
+              onClick={() => setActiveTab('account')}
+              className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'account'
+                  ? 'bg-amber-400 text-slate-950 shadow-xs font-black'
                   : 'text-sky-200 hover:text-white hover:bg-white/5'
               }`}
             >
-              {lang === 'bn' ? 'প্রোফাইল' : 'Profile'}
+              <User className="w-4 h-4" />
+              <span>{lang === 'bn' ? 'মাই অ্যাকাউন্ট' : 'My Account'}</span>
             </button>
           </div>
 
@@ -342,6 +355,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   : `Sessions: ${user.availableSessions !== undefined ? user.availableSessions : 10}`}
               </span>
             </div>
+
+            {/* Sound Studio Button */}
+            <button
+              onClick={() => setIsSoundModalOpen(true)}
+              className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-sky-100 flex items-center gap-1.5 transition-all cursor-pointer"
+              title={lang === 'bn' ? 'ডুওলিঙ্গো সাউন্ড সেটিংস ও টেস্ট' : 'Duolingo Sound Settings & Test'}
+            >
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">{lang === 'bn' ? 'সাউন্ড' : 'Sound'}</span>
+            </button>
 
             {/* Language Switcher Button */}
             <button
@@ -525,6 +548,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <Award className="w-4 h-4 text-purple-600" />
                       <span>{lang === 'bn' ? 'ক্যামব্রিজ ব্যান্ড স্কোর গাইড' : 'Cambridge Band Descriptors'}</span>
                     </button>
+
+                    {/* Duolingo Sound Studio */}
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setIsSoundModalOpen(true);
+                      }}
+                      className="w-full p-2.5 rounded-xl flex items-center gap-3 text-slate-700 hover:bg-amber-50 hover:text-amber-950 transition-colors text-left cursor-pointer"
+                    >
+                      <Volume2 className="w-4 h-4 text-amber-600" />
+                      <div className="flex items-center justify-between flex-1">
+                        <span>{lang === 'bn' ? 'ডুওলিঙ্গো সাউন্ড সেটিংস' : 'Duolingo Sound Settings'}</span>
+                        <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded">
+                          LOUD
+                        </span>
+                      </div>
+                    </button>
                   </div>
                 </div>
 
@@ -575,19 +615,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     {/* Band Selection Dropdown */}
                     {isChangingScore && (
-                      <div className="mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-1">
-                        {['6.5', '7.0', '7.5', '8.0', '8.5'].map((sc) => (
+                      <div className="mt-2 bg-slate-50 p-2 rounded-xl border border-slate-200 space-y-1 max-h-48 overflow-y-auto shadow-inner">
+                        {[
+                          { val: '5.0', tier: lang === 'bn' ? 'বেসিক (সহজ)' : 'Foundation (Easy)' },
+                          { val: '5.5', tier: lang === 'bn' ? 'বেসিক (সহজ)' : 'Foundation (Easy)' },
+                          { val: '6.0', tier: lang === 'bn' ? 'মিডিয়াম' : 'Moderate' },
+                          { val: '6.5', tier: lang === 'bn' ? 'মিডিয়াম' : 'Moderate' },
+                          { val: '7.0', tier: lang === 'bn' ? 'স্ট্যান্ডার্ড' : 'Standard' },
+                          { val: '7.5', tier: lang === 'bn' ? 'চ্যালেঞ্জিং (কঠিন)' : 'Challenging (Hard)' },
+                          { val: '8.0', tier: lang === 'bn' ? 'চ্যালেঞ্জিং (কঠিন)' : 'Challenging (Hard)' },
+                          { val: '8.5', tier: lang === 'bn' ? 'মাস্টারি (সর্বোচ্চ কঠিন)' : 'Mastery (Tough)' },
+                          { val: '9.0', tier: lang === 'bn' ? 'মাস্টারি (সর্বোচ্চ কঠিন)' : 'Mastery (Tough)' },
+                        ].map((item) => (
                           <button
-                            key={sc}
+                            key={item.val}
                             onClick={() => {
-                              onUpdateUser({ targetScore: sc });
+                              onUpdateUser({ targetScore: item.val });
                               setIsChangingScore(false);
                             }}
-                            className={`w-full py-1 text-xs font-bold rounded-lg text-left px-2 cursor-pointer ${
-                              user.targetScore === sc ? 'bg-[#0A2540] text-white' : 'hover:bg-slate-200 text-slate-700'
+                            className={`w-full py-1.5 text-xs font-bold rounded-lg text-left px-2 cursor-pointer flex items-center justify-between transition-colors ${
+                              user.targetScore === item.val
+                                ? 'bg-[#0A2540] text-white'
+                                : 'hover:bg-slate-200 text-slate-700'
                             }`}
                           >
-                            Band {sc}
+                            <span>Band {item.val}</span>
+                            <span className="text-[9px] opacity-75 font-normal">{item.tier}</span>
                           </button>
                         ))}
                       </div>
@@ -997,43 +1050,208 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {/* TAB 4: MY ACCOUNT & SUBSCRIPTION STATUS */}
           {activeTab === 'account' && (
             <div className="space-y-4 pb-28">
-              {/* Profile Card */}
-              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0A2540] text-white flex items-center justify-center font-bold text-lg">
-                    {user.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-[#0A2540] text-base">{user.name}</h3>
-                    <span className="text-xs text-slate-500 font-mono block">Roll #{user.rollNumber}</span>
-                  </div>
+              {/* Executive Cambridge Candidate Passport / Identity Card */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0A2540] via-[#0f365d] to-[#061828] text-white p-6 shadow-xl border border-sky-900/60">
+                {/* Decorative background glow & emblem */}
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-44 h-44 bg-sky-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="absolute bottom-0 right-3 opacity-5 pointer-events-none">
+                  <Award className="w-36 h-36 text-white" />
                 </div>
 
-                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">{lang === 'bn' ? 'মোবাইল নম্বর:' : 'Mobile Number:'}</span>
-                    <span className="font-bold font-mono text-slate-800">{user.phone}</span>
+                <div className="relative z-10 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center font-black text-2xl shadow-lg border-2 border-white/20">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-extrabold text-white text-lg tracking-tight">{user.name}</h3>
+                          <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span>{lang === 'bn' ? 'ভেরিফাইড ক্যান্ডিডেট' : 'Verified Candidate'}</span>
+                          </span>
+                        </div>
+                        <span className="text-xs text-sky-200 font-mono tracking-wide block mt-0.5">
+                          ID: {user.rollNumber || 'DIBO-2026-9819'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase tracking-wider text-amber-300/80 font-bold block">
+                        {lang === 'bn' ? 'টার্গেট ব্যান্ড' : 'Target Band'}
+                      </span>
+                      <span className="font-black text-2xl text-amber-400 font-mono">
+                        Band {user.targetScore}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">{lang === 'bn' ? 'জিমেইল এড্রেস:' : 'Gmail Address:'}</span>
-                    <span className="font-medium text-slate-800 truncate max-w-[180px]">{user.email}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">{lang === 'bn' ? 'টার্গেট ব্যান্ড:' : 'Target Band:'}</span>
-                    <span className="font-bold text-amber-600">Band {user.targetScore}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">{lang === 'bn' ? 'রেফারেল কোড:' : 'Referral Code:'}</span>
-                    <span className="font-mono font-bold text-sky-800">{user.referralCode}</span>
+
+                  {/* Candidate Attributes Grid */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                    <div className="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10">
+                      <span className="text-[10px] text-sky-200 block">{lang === 'bn' ? 'মোবাইল নম্বর' : 'Mobile'}</span>
+                      <span className="font-mono font-bold text-white truncate block">{user.phone}</span>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl border border-white/10">
+                      <span className="text-[10px] text-sky-200 block">{lang === 'bn' ? 'জিমেইল এড্রেস' : 'Gmail'}</span>
+                      <span className="font-medium text-white truncate block" title={user.email}>{user.email}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Subscription Lifecycle Card per user mandate */}
+              {/* Dynamic Target Band Calibrator (Direct difficulty controller) */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                      <Sliders className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-[#0A2540]">
+                        {lang === 'bn' ? 'টার্গেট ব্যান্ড ও কাঠিন্য অ্যাডজাস্টার' : 'Target Band & Exam Rigor Calibrator'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        {lang === 'bn'
+                          ? 'ব্যান্ড পরিবর্তনের সাথে সাথে পরীক্ষার প্রশ্নের জটিলতা ও এআই কাঠিন্য স্বয়ংক্রিয়ভাবে পরিবর্তিত হবে।'
+                          : 'Changing target band instantly adapts listening speed, reading tier & speaking rigor.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interactive Band Selector Grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-1">
+                  {[
+                    { val: '5.0', label: 'Band 5.0', tier: 'Foundation', descBn: 'সহজ (বেসিক)' },
+                    { val: '5.5', label: 'Band 5.5', tier: 'Foundation', descBn: 'সহজ (বেসিক)' },
+                    { val: '6.0', label: 'Band 6.0', tier: 'Moderate', descBn: 'মিডিয়াম' },
+                    { val: '6.5', label: 'Band 6.5', tier: 'Moderate', descBn: 'মিডিয়াম' },
+                    { val: '7.0', label: 'Band 7.0', tier: 'Moderate', descBn: 'স্ট্যান্ডার্ড' },
+                    { val: '7.5', label: 'Band 7.5', tier: 'Challenging', descBn: 'কঠিন' },
+                    { val: '8.0', label: 'Band 8.0', tier: 'Challenging', descBn: 'কঠিন' },
+                    { val: '8.5', label: 'Band 8.5', tier: 'Mastery', descBn: 'উচ্চ কঠিন' },
+                    { val: '9.0', label: 'Band 9.0', tier: 'Mastery', descBn: 'সর্বোচ্চ' },
+                  ].map((b) => {
+                    const isSelected = user.targetScore === b.val;
+                    return (
+                      <button
+                        key={b.val}
+                        onClick={() => {
+                          onUpdateUser({ targetScore: b.val });
+                          sound.playSuccess();
+                        }}
+                        className={`p-2.5 rounded-2xl border text-center transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#0A2540] text-white border-[#0A2540] shadow-md scale-[1.02]'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="font-extrabold text-xs block">{b.label}</span>
+                        <span className={`text-[10px] block mt-0.5 ${isSelected ? 'text-amber-300' : 'text-slate-500'}`}>
+                          {lang === 'bn' ? b.descBn : b.tier}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Tier Summary Card */}
+                <div className="bg-sky-50/70 p-3 rounded-2xl border border-sky-100 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-sky-950 block">
+                        {lang === 'bn' ? 'বর্তমান সক্রিয় কাঠিন্য স্তর:' : 'Current Active Difficulty Tier:'}{' '}
+                        <span className="text-sky-700">{diffProbs.labelBn}</span>
+                      </span>
+                      <span className="text-[11px] text-slate-600">
+                        {diffProbs.hard}% Hard · {diffProbs.medium}% Medium · {diffProbs.easy}% Easy
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-sky-200/60 text-sky-900 font-bold px-2 py-0.5 rounded-lg">
+                    Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Student Referral & Wallet Hub */}
+              <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-[#0A2540]">
+                        {lang === 'bn' ? 'স্টুডেন্ট ওয়ালেট ও রেফারেল আর্নিং' : 'Referral Wallet & Student Earnings'}
+                      </h4>
+                      <span className="text-[11px] text-slate-500">
+                        {lang === 'bn' ? 'বিকাশ অথবা নগদে তাৎক্ষণিক উত্তোলনযোগ্য' : 'Direct withdrawable via bKash / Nagad'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                    {lang === 'bn' ? 'উত্তোলনযোগ্য ব্যালেন্স' : 'Withdrawable'}
+                  </span>
+                </div>
+
+                <div className="bg-gradient-to-r from-emerald-600 to-teal-700 p-4 rounded-2xl text-white flex items-center justify-between shadow-sm">
+                  <div>
+                    <span className="text-[11px] text-emerald-100 font-medium block">
+                      {lang === 'bn' ? 'মোট রেফারেল ব্যালেন্স' : 'Total Referral Balance'}
+                    </span>
+                    <span className="font-black text-2xl tracking-tight">
+                      ৳{(user.walletBalance !== undefined ? user.walletBalance : 5000).toLocaleString()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => onNavigateToPage('withdraw')}
+                    className="px-3.5 py-2 bg-white text-emerald-900 font-extrabold text-xs rounded-xl hover:bg-emerald-50 active:scale-95 transition-all shadow cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>{lang === 'bn' ? 'টাকা তুলুন' : 'Withdraw Now'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* 1-Click Referral Code Copy */}
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                      {lang === 'bn' ? 'আপনার ইউনিক রেফারেল কোড' : 'Your Unique Referral Code'}
+                    </span>
+                    <span className="font-mono font-black text-slate-800 text-sm tracking-wider">
+                      {user.referralCode || 'NAHIDA9819'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={copyReferralCode}
+                    className="px-3 py-1.5 bg-[#0A2540] hover:bg-sky-900 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedReferral ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedReferral ? (lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!') : (lang === 'bn' ? 'কপি কোড' : 'Copy')}</span>
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onNavigateToPage('referral')}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Gift className="w-3.5 h-3.5 text-sky-700" />
+                    <span>{lang === 'bn' ? 'রেফারেল ড্যাশবোর্ড দেখুন' : 'View Referral Hub'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Subscription Lifecycle & Exam Sessions Status */}
               <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    {lang === 'bn' ? 'সাবস্ক্রিপশন ও মেয়াদ বিবরণ' : 'Subscription Lifecycle'}
+                    {lang === 'bn' ? 'সাবস্ক্রিপশন ও সেশন বিবরণ' : 'Subscription & Exam Sessions'}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1048,7 +1266,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </span>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-500">{lang === 'bn' ? 'প্যাকেজ:' : 'Package:'}</span>
                     <span className="font-bold text-slate-800">{user.subscriptionPlanTitle}</span>
@@ -1059,29 +1277,64 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {formatRemainingDays(user.expiryDate)}
                     </span>
                   </div>
+                  <div className="flex justify-between border-t border-slate-200/80 pt-2">
+                    <span className="text-slate-500">{lang === 'bn' ? 'উপলব্ধ পরীক্ষা সেশন:' : 'Available Exam Sessions:'}</span>
+                    <span className="font-bold font-mono text-[#0A2540]">
+                      {user.availableSessions !== undefined ? user.availableSessions : 10} / {user.dailySessionsQuota || 10} {lang === 'bn' ? 'সেশন' : 'Sessions'}
+                    </span>
+                  </div>
                 </div>
 
                 <p className="text-[11px] text-slate-500 leading-relaxed bg-sky-50/60 p-3 rounded-2xl border border-sky-100">
                   {lang === 'bn'
-                    ? '💡 নিয়মাবলী: সাবস্ক্রিপশনের মেয়াদ শেষ হলে পুরাতন টেস্ট ও রেজাল্ট দেখা যাবে, কিন্তু নতুন মক টেস্ট ও টাং টুইস্টার দিতে হলে প্ল্যান নবায়ন করতে হবে।'
-                    : '💡 Policy: Once the subscription period ends, previous exams and transcripts remain accessible, but taking new exams requires renewal.'}
+                    ? '💡 সেশন নিয়মাবলী: পরীক্ষা শুরু করলেই সেশন কাটা হয় না। সম্পূর্ণ পরীক্ষা সম্পন্ন করলে অথবা রিসেট এক্সাম বোতাম চাপলেই কেবল ১টি সেশন খরচ হিসেবে গণ্য হবে।'
+                    : '💡 Cambridge Session Policy: Starting an exam never consumes quota. A session is strictly deducted only upon completing an entire exam or performing an explicit exam reset.'}
                 </p>
+              </div>
+
+              {/* Useful Portal Links */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => onNavigateToPage('band_guide')}
+                  className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl text-left flex items-center justify-between cursor-pointer transition-colors shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-sky-700" />
+                    <span className="font-bold text-xs text-slate-800">
+                      {lang === 'bn' ? 'ব্যান্ড স্কোর গাইড' : 'Band Score Guide'}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
+
+                <button
+                  onClick={() => onNavigateToPage('support')}
+                  className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-2xl text-left flex items-center justify-between cursor-pointer transition-colors shadow-2xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-emerald-700" />
+                    <span className="font-bold text-xs text-slate-800">
+                      {lang === 'bn' ? 'সাপোর্ট ডেস্ক' : 'Support Desk'}
+                    </span>
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                </button>
               </div>
 
               {/* Log Out */}
               <button
                 onClick={onResetApp}
-                className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-2xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-2xl text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer border border-rose-200/80"
               >
-                <LogOut className="w-4 h-4" />
-                <span>{lang === 'bn' ? 'লগআউট করুন' : 'Sign Out'}</span>
+                <LogOut className="w-4 h-4 text-rose-600" />
+                <span>{lang === 'bn' ? 'অ্যাকাউন্ট থেকে লগআউট করুন' : 'Sign Out of Account'}</span>
               </button>
             </div>
           )}
         </main>
 
-        {/* 4. Bottom Navigation Bar */}
-        <nav className="fixed bottom-0 max-w-md w-full bg-white border-t border-slate-200 px-3 py-2 z-30 flex items-center justify-around shadow-lg">
+        {/* 4. Bottom Navigation Bar (Visible only on mobile / Android; desktop uses the top header tabs) */}
+        <nav className="md:hidden fixed bottom-0 max-w-md w-full bg-white border-t border-slate-200 px-3 py-2 z-30 flex items-center justify-around shadow-lg">
           {/* Tab 1: Exam Center */}
           <button
             onClick={() => setActiveTab('exam_center')}
@@ -1267,6 +1520,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
         )}
+        {/* Sound Studio Settings & Test Modal */}
+        <SoundControlModal
+          isOpen={isSoundModalOpen}
+          onClose={() => setIsSoundModalOpen(false)}
+          lang={lang}
+        />
       </div>
     </div>
   );

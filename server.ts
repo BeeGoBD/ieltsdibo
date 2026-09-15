@@ -34,9 +34,11 @@ function getAIClient(): GoogleGenAI | null {
 // Resilient multi-model fallback list to handle temporary 503 high demand or rate spikes
 const CANDIDATE_MODELS = [
   'gemini-3.8-flash',
-  'gemini-flash-latest',
   'gemini-3.1-flash-lite',
 ];
+
+// Circuit breaker cooldown tracking: if a model returns 503 (high demand), cooldown for 60s
+const modelCooldownUntil: Record<string, number> = {};
 
 interface GeminiCallParams {
   contents: string;
@@ -49,8 +51,19 @@ async function callGeminiWithFallback(params: GeminiCallParams): Promise<string 
   const client = getAIClient();
   if (!client) return null;
 
-  for (let i = 0; i < CANDIDATE_MODELS.length; i++) {
-    const model = CANDIDATE_MODELS[i];
+  const now = Date.now();
+  // Filter models that are not currently under 503 cooldown
+  let availableModels = CANDIDATE_MODELS.filter(
+    (m) => (modelCooldownUntil[m] || 0) <= now
+  );
+
+  // If all models are cooled down, reset cooldowns and try all
+  if (availableModels.length === 0) {
+    availableModels = [...CANDIDATE_MODELS];
+  }
+
+  for (let i = 0; i < availableModels.length; i++) {
+    const model = availableModels[i];
     try {
       const config: any = {};
       if (params.systemInstruction) config.systemInstruction = params.systemInstruction;
@@ -65,15 +78,33 @@ async function callGeminiWithFallback(params: GeminiCallParams): Promise<string 
 
       const text = response.text?.trim();
       if (text) {
+        // Successful response - clear any cooldown
+        delete modelCooldownUntil[model];
         return text;
       }
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      console.warn(
-        `Gemini model '${model}' unavailable (${err?.status || err?.code || 'error'}: ${errMsg.slice(0, 100)}). Trying next fallback model...`
-      );
-      if (i < CANDIDATE_MODELS.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      const isHighDemand =
+        err?.status === 503 ||
+        err?.code === 503 ||
+        errMsg.includes('503') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('capacity');
+
+      if (isHighDemand) {
+        // Put model in cooldown for 60 seconds so subsequent requests route immediately to flash-lite
+        modelCooldownUntil[model] = Date.now() + 60000;
+        console.log(
+          `[Gemini Engine] Model '${model}' is experiencing high demand (503). Activating ${
+            availableModels[i + 1] || 'backup'
+          } with 60s cooldown.`
+        );
+      } else {
+        console.log(`[Gemini Engine] Notice on '${model}': ${errMsg.slice(0, 80)}`);
+      }
+
+      if (i < availableModels.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
   }
@@ -93,22 +124,22 @@ app.post('/api/speaking/chat', async (req, res) => {
   const { stage, messages, userResponse, topic, targetScore } = req.body;
   const targetBand = targetScore || '7.5';
 
-  const systemInstruction = `You are Dr. Alistair Finch, a distinguished Cambridge IELTS Senior Speaking Examiner conducting a live voice assessment.
+  const systemInstruction = `You are Dr. Alistair Finch, a distinguished Cambridge IELTS Senior Speaking Examiner conducting an authentic live voice assessment.
 Candidate's Target Band: ${targetBand}.
 Current Part: ${stage} (Part 1 = Interview on familiar topics; Part 2 = Cue card follow-up; Part 3 = In-depth analytical and societal discussion).
 
-CRITICAL VOICE-ONLY EXAMINER PROTOCOL:
-1. Pure Voice Navigation: The student sees NO text; they will only HEAR your voice. You must speak directly, articulately, in standard British English.
-2. Active Listening & Direct Acknowledgement: Begin by explicitly referencing what the student just answered (e.g., "That is an interesting observation about traffic in your city...", or "I appreciate your insight regarding university education..."). DO NOT sound like an auto-bot repeating generic lines.
-3. Spoken Feedback & Immediate Correction: If the candidate made any grammatical error (e.g., "I am agree", "every people are", incorrect tense, awkward preposition), politely give a 1-sentence spoken correction before moving on (e.g., "Just note that we say 'I agree' rather than 'I am agree'"). If their answer was too brief or repetitive, challenge them.
-4. Intelligent Next Question: Deliver a fresh, engaging follow-up question that logically builds upon their response and tests higher-level vocabulary and syntax.
-5. NO REPETITIONS: Never repeat a question or template already present in the conversation history.
-6. Keep your speech concise and conversational (40 to 65 words total), natural for speech synthesis.
+CRITICAL AUTHENTIC HUMAN EXAMINER PROTOCOL:
+1. Warm, Respectful, Thoughtful Persona: You are not a mechanical robot. You speak with natural British intellectual warmth, dignity, and thoughtful poise.
+2. Conversational Thinking Markers: Start your spoken response with natural, human cognitive discourse markers that show you genuinely listened and reflected on their exact words (e.g., "Hmm, I see what you mean...", "Right, that is a sensible distinction...", "Alright, reflecting upon that observation...", "Well, that raises a particularly interesting question...").
+3. Active Deep Listening: Explicitly reference a specific concept or phrase the student just uttered. Validate their insight or probe their reasoning.
+4. Spoken Feedback & Constructive Polish: If the candidate made any noticeable grammatical or lexical misstep (e.g., "I am agree", "every people are", awkward preposition, unnatural tense), offer a gentle, encouraging 1-sentence spoken tip (e.g., "Just as a quick note for your lexical score, we would say 'I agree' rather than 'I am agree'").
+5. Thoughtful Follow-up Question: Deliver a stimulating, context-aware question that naturally branches from their response and tests higher-order analytical reasoning.
+6. Conciseness: Keep your spoken output between 40 and 65 words so it sounds natural, conversational, and effortless when spoken aloud.
 
 Return ONLY clean JSON:
 {
-  "examinerSpeech": "The exact British English words spoken aloud by the examiner, including personal acknowledgement, any spoken grammar correction/tip, and the next question.",
-  "doubtOrChallenge": "The core probing doubt or question asked.",
+  "examinerSpeech": "The exact British English words spoken aloud by the examiner, including personal acknowledgement with a human thinking marker, any spoken grammar correction/tip, and the next question.",
+  "doubtOrChallenge": "The core probing inquiry or question asked.",
   "correctionNote": "Brief grammar or lexical correction if any, or null.",
   "shouldAdvance": false
 }`;
@@ -262,22 +293,23 @@ app.post('/api/speaking/evaluate', async (req, res) => {
   const totalWords = validAnswers.reduce((acc: number, t: string) => acc + t.trim().split(/\s+/).length, 0);
 
   if (validAnswers.length > 0) {
-    const prompt = `You are a strict Cambridge IELTS Chief Examiner evaluating a candidate's complete Speaking Test.
+    const prompt = `You are a strict, completely honest Cambridge IELTS Chief Examiner evaluating a candidate's complete Speaking Test.
 Candidate: ${name}.
 Target: Band ${candidateTarget}.
 Candidate's Spoken Responses across the test:
 ${validAnswers.map((a: string, i: number) => `Response ${i + 1} (${a.split(/\s+/).length} words): "${a}"`).join('\n\n')}
 
-Evaluate strictly using Cambridge criteria:
+Evaluate strictly using authentic Cambridge IELTS Band Descriptors (FC, LR, GRA, PR):
 1. Fluency & Coherence (FC)
 2. Lexical Resource (LR)
 3. Grammatical Range & Accuracy (GRA)
 4. Pronunciation & Natural Flow (PR)
 
-STRICT RULE:
-- If the candidate gave very short, silent, or repetitive answers (total words < 50), do NOT give high ratings! Award Band 4.0 - 5.0.
-- If the candidate answered comprehensively with idiomatic phrases and complex subordinate clauses, award Band 7.0 - 8.5.
-- Be honest and rigorous.
+STRICT HONEST SCORING MANDATE:
+- NEVER inflate, round up, or flatter scores. If a student's answer deserves Band 5.5 or 6.0, give exactly 5.5 or 6.0.
+- If the candidate gave brief, rudimentary, or simple answers (word count < 60 total or persistent grammatical slips), award Band 4.5 - 5.5.
+- Only award Band 7.0+ if the candidate demonstrated high lexical variety, flexible complex structures, and well-developed coherent arguments without frequent hesitations.
+- Overall Band MUST be a valid IELTS half or whole band (e.g. 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0).
 
 Return JSON format:
 {

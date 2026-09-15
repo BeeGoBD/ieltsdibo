@@ -264,7 +264,11 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
     });
 
     setIsProcessingAi(true);
-    setExaminerStatusText(lang === 'bn' ? 'ড. ফিঞ্চ আপনার উত্তর শুনছেন ও বিশ্লেষণ করছেন...' : 'Dr. Finch is evaluating your response...');
+    setExaminerStatusText(
+      lang === 'bn'
+        ? 'ড. ফিঞ্চ আপনার সম্পূর্ণ উত্তর শুনছেন ও নোট নিচ্ছেন...'
+        : 'Dr. Finch is attentively reviewing your spoken response...'
+    );
 
     // Manage IELTS Part transitions
     const candidateTurns = conversationHistoryRef.current.filter(
@@ -289,23 +293,27 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
     setQuestionCount(candidateTurns + 1);
 
     try {
-      const res = await fetch('/api/speaking/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stage: currentStageParam,
-          messages: conversationHistoryRef.current,
-          userResponse: userSpokenText,
-          targetScore: user.targetScore,
+      // Natural deliberate human thinking pause so examiner reads and reflects before speaking
+      const [res] = await Promise.all([
+        fetch('/api/speaking/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stage: currentStageParam,
+            messages: conversationHistoryRef.current,
+            userResponse: userSpokenText,
+            targetScore: user.targetScore,
+          }),
         }),
-      });
+        new Promise((resolve) => setTimeout(resolve, 1800)),
+      ]);
 
       const data = await res.json();
       setIsProcessingAi(false);
 
       const examinerNextSpeech =
         data.examinerSpeech ||
-        'Thank you. That was a clear response. Let us explore that from another angle. How do you see this trend developing in the near future?';
+        'Hmm, right. That is an interesting observation. Let us examine that from another angle. How do you foresee this development affecting society in the coming years?';
 
       conversationHistoryRef.current.push({
         role: 'examiner',
@@ -316,7 +324,7 @@ export const SpeakingExamPageView: React.FC<SpeakingExamPageViewProps> = ({
     } catch (err) {
       setIsProcessingAi(false);
       const fallbackSpeech =
-        'Thank you. That is an interesting point. Reflecting upon that, how do you think individuals might balance that with their daily responsibilities?';
+        'Hmm, I see. That is a thoughtful perspective. Reflecting upon what you just said, how might people strike a balance between this and their other responsibilities?';
       conversationHistoryRef.current.push({
         role: 'examiner',
         content: fallbackSpeech,

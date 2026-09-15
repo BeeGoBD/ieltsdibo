@@ -36,10 +36,11 @@ interface AccountTabProps {
 
 const BAND_SCORES = ['5.5', '6.0', '6.5', '7.0', '7.5', '8.0', '8.5', '9.0'];
 const WEAKNESS_LIST = [
+  { id: 'listening', labelBn: 'লিসেনিং (Listening Audio)', labelEn: 'Listening & Accents' },
   { id: 'reading', labelBn: 'রিডিং (Reading & True/False)', labelEn: 'Reading & Comprehension' },
   { id: 'writing', labelBn: 'রাইটিং (Writing Task 1 & 2)', labelEn: 'Writing Task 1 & 2' },
   { id: 'speaking', labelBn: 'স্পিকিং (Speaking & Fluency)', labelEn: 'Speaking & Pronunciation' },
-  { id: 'listening', labelBn: 'লিসেনিং (Listening Audio)', labelEn: 'Listening & Accents' },
+  { id: 'none', labelBn: 'কোনো দুর্বলতা নেই (No Weakness)', labelEn: 'No Specific Weakness' },
 ];
 
 export const AccountTab: React.FC<AccountTabProps> = ({
@@ -201,8 +202,21 @@ export const AccountTab: React.FC<AccountTabProps> = ({
                 {isEditingWeakness ? 'বাতিল' : 'পরিবর্তন'}
               </button>
             </div>
-            <div className="text-sm font-black text-amber-950 uppercase truncate">
-              {user.weakness || 'Writing'}
+            <div className="flex flex-wrap gap-1 mt-1">
+              {user.weakness && user.weakness !== 'none' ? (
+                user.weakness.split(',').map((w, idx) => (
+                  <span
+                    key={idx}
+                    className="text-[11px] font-black text-amber-950 uppercase px-2 py-0.5 bg-amber-200/90 rounded-md shadow-2xs"
+                  >
+                    {w.trim()}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                  {lang === 'bn' ? 'সব মডিউল ব্যালেন্সড' : 'All-Round Balanced'}
+                </span>
+              )}
             </div>
             <p className="text-[10px] text-amber-800">
               {lang === 'bn' ? 'বিশেষ এআই রিভিউর অধীনে' : 'Under AI Focus'}
@@ -241,7 +255,7 @@ export const AccountTab: React.FC<AccountTabProps> = ({
           </motion.div>
         )}
 
-        {/* Edit Weakness Selector */}
+        {/* Edit Weakness Selector (Supports toggling multiple) */}
         {isEditingWeakness && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -249,27 +263,52 @@ export const AccountTab: React.FC<AccountTabProps> = ({
             className="p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-2"
           >
             <span className="text-xs font-bold text-slate-700 block">
-              {lang === 'bn' ? 'আপনার মূল দুর্বলতার বিষয় নির্বাচন করুন:' : 'Select Core Focus Skill:'}
+              {lang === 'bn' ? 'আপনার দুর্বলতার বিষয়গুলো নির্বাচন করুন (একাধিক সম্ভব):' : 'Select Focus Skills (Multi-select supported):'}
             </span>
             <div className="space-y-1.5">
-              {WEAKNESS_LIST.map((w) => (
-                <button
-                  key={w.id}
-                  onClick={() => {
-                    onUpdateUser({ weakness: w.id });
-                    setIsEditingWeakness(false);
-                  }}
-                  className={`w-full text-left p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                    user.weakness.toLowerCase() === w.id
-                      ? 'bg-[#0A2540] text-white'
-                      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span>{lang === 'bn' ? w.labelBn : w.labelEn}</span>
-                  {user.weakness.toLowerCase() === w.id && <Check className="w-4 h-4 text-emerald-400" />}
-                </button>
-              ))}
+              {WEAKNESS_LIST.map((w) => {
+                const currentArr = (user.weakness || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+                const isSelected = currentArr.includes(w.id);
+
+                return (
+                  <button
+                    key={w.id}
+                    onClick={() => {
+                      let nextArr: string[];
+                      if (w.id === 'none') {
+                        if (isSelected) {
+                          nextArr = [];
+                        } else {
+                          nextArr = ['none'];
+                        }
+                      } else {
+                        const withoutNone = currentArr.filter((item) => item !== 'none');
+                        if (isSelected) {
+                          nextArr = withoutNone.filter((item) => item !== w.id);
+                        } else {
+                          nextArr = [...withoutNone, w.id];
+                        }
+                      }
+                      onUpdateUser({ weakness: nextArr.join(',') || 'none' });
+                    }}
+                    className={`w-full text-left p-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#0A2540] text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{lang === 'bn' ? w.labelBn : w.labelEn}</span>
+                    {isSelected && <Check className="w-4 h-4 text-emerald-400" />}
+                  </button>
+                );
+              })}
             </div>
+            <button
+              onClick={() => setIsEditingWeakness(false)}
+              className="w-full mt-2 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold text-center cursor-pointer shadow-xs"
+            >
+              {lang === 'bn' ? 'সংরক্ষণ করুন' : 'Done'}
+            </button>
           </motion.div>
         )}
       </div>

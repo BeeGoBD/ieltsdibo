@@ -33,8 +33,8 @@ const createBlankStudent = (): UserProfile => ({
   email: '',
   phone: '',
   password: '',
-  targetScore: '7.5',
-  weakness: 'writing',
+  targetScore: '',
+  weakness: '',
   subscriptionPlanId: 'plan_30days',
   subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
   subscriptionDays: 30,
@@ -65,7 +65,7 @@ export const createNahidaStudent = (): UserProfile => ({
   paymentStatus: 'approved',
   rollNumber: 'DIBO-2026-9819',
   referralCode: 'NAHIDA9819',
-  walletBalance: 0,
+  walletBalance: 5000,
   totalExamsQuota: 300,
   availableSessions: 10,
   dailySessionsQuota: 10,
@@ -103,17 +103,19 @@ try {
   );
   if (nahidaIndex >= 0) {
     usersList[nahidaIndex].password = 'Nahida123';
+    usersList[nahidaIndex].walletBalance = 5000;
   } else {
     usersList.unshift(createNahidaStudent());
   }
   localStorage.setItem('ielts_dibo_v2_users', JSON.stringify(usersList));
 
-  // If current active user in storage is Nahida, update password
+  // If current active user in storage is Nahida, update password & balance
   if (currentUserRaw) {
     try {
       const cur = JSON.parse(currentUserRaw);
       if (cur?.email?.toLowerCase().trim() === 'nahida09819@gmail.com') {
         cur.password = 'Nahida123';
+        cur.walletBalance = 5000;
         localStorage.setItem('ielts_dibo_v2_current_user', JSON.stringify(cur));
       }
     } catch (e) {}
@@ -347,8 +349,22 @@ export default function App() {
       [record.examType]: record.overallBand,
     };
 
+    // Session Rule: Deduct 1 session on completion of Full Mock OR upon completing all 4 modules
+    const isFullMock = record.examType === 'full_mock';
+    const hasCompletedAllFour =
+      Boolean(updatedModuleScores.listening) &&
+      Boolean(updatedModuleScores.reading) &&
+      Boolean(updatedModuleScores.writing) &&
+      Boolean(updatedModuleScores.speaking);
+
+    const shouldDeductSession = isFullMock || hasCompletedAllFour;
+    const currentSessions = currentUser.availableSessions !== undefined ? currentUser.availableSessions : 10;
+    const newAvailableSessions = shouldDeductSession ? Math.max(0, currentSessions - 1) : currentSessions;
+
     handleUpdateCurrentUser({
       moduleScores: updatedModuleScores,
+      availableSessions: newAvailableSessions,
+      examsCompleted: (currentUser.examsCompleted || 0) + 1,
     });
   };
 
@@ -395,8 +411,25 @@ export default function App() {
     case 'landing':
       return (
         <LandingScreen
-          onStart={() => setCurrentStep('target_score')}
+          lang={lang}
+          onToggleLanguage={() => setLang((prev) => (prev === 'bn' ? 'en' : 'bn'))}
+          onStart={() => {
+            if (!currentUser.id) {
+              setCurrentUser((prev) => ({ ...prev, targetScore: '', weakness: '' }));
+            }
+            setCurrentStep('target_score');
+          }}
           onLogin={() => setCurrentStep('login')}
+          onDirectDemoLogin={() => {
+            const nahida =
+              users.find(
+                (u) => u.email?.toLowerCase().trim() === 'nahida09819@gmail.com'
+              ) || createNahidaStudent();
+            setCurrentUser(nahida);
+            setCurrentStep('dashboard');
+          }}
+          onExploreBandGuide={() => setCurrentStep('band_guide')}
+          onExplorePricing={() => setCurrentStep('pricing')}
         />
       );
 
@@ -441,6 +474,7 @@ export default function App() {
           onSelectScore={(score) => handleUpdateCurrentUser({ targetScore: score })}
           onBack={() => setCurrentStep('landing')}
           onNext={() => setCurrentStep('weakness')}
+          lang={lang}
         />
       );
 
@@ -452,6 +486,7 @@ export default function App() {
           onSelectWeakness={(weakness) => handleUpdateCurrentUser({ weakness })}
           onBack={() => setCurrentStep('target_score')}
           onNext={() => setCurrentStep('signup')}
+          lang={lang}
         />
       );
 
@@ -490,7 +525,7 @@ export default function App() {
               phone: phoneNorm,
               password: signupDraft.password.trim(),
               targetScore: currentUser.targetScore || '7.5',
-              weakness: currentUser.weakness || 'writing',
+              weakness: currentUser.weakness || 'none',
               subscriptionPlanId: 'plan_30days',
               subscriptionPlanTitle: '৩০ দিনের মাস্টার প্ল্যান (৪৯৯ টাকা)',
               subscriptionDays: 30,

@@ -19,6 +19,7 @@ import confetti from 'canvas-confetti';
 import { SkillCategory, ExamRecord, UserProfile, AppLanguage } from '../types';
 import { generateSpecificModulePdf, generateExamReportPdf } from '../utils/pdfGenerator';
 import { getFreshExamSet } from '../utils/questionBank';
+import { sound } from '../utils/soundEffects';
 
 interface ExamModalProps {
   isOpen: boolean;
@@ -114,6 +115,7 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     setGeneratedScore(record);
     setIsFinished(true);
     onExamComplete(record);
+    sound.playFanfare();
 
     try {
       confetti({
@@ -226,7 +228,10 @@ export const ExamModal: React.FC<ExamModalProps> = ({
                       {questionsList[currentQuestion]?.options.map((opt: string, i: number) => (
                         <button
                           key={i}
-                          onClick={() => setSelectedAnswers({ ...selectedAnswers, [currentQuestion]: opt })}
+                          onClick={() => {
+                            sound.playSelect();
+                            setSelectedAnswers({ ...selectedAnswers, [currentQuestion]: opt });
+                          }}
                           className={`w-full text-left p-3 rounded-xl text-xs transition-all flex items-start gap-2.5 border cursor-pointer ${
                             selectedAnswers[currentQuestion] === opt
                               ? 'bg-emerald-50 border-emerald-500 font-semibold text-emerald-950 ring-1 ring-emerald-500'
@@ -305,7 +310,10 @@ export const ExamModal: React.FC<ExamModalProps> = ({
                       {questionsList[currentQuestion]?.options.map((opt: string, i: number) => (
                         <button
                           key={i}
-                          onClick={() => setSelectedAnswers({ ...selectedAnswers, [currentQuestion]: opt })}
+                          onClick={() => {
+                            sound.playSelect();
+                            setSelectedAnswers({ ...selectedAnswers, [currentQuestion]: opt });
+                          }}
                           className={`w-full text-left p-3 rounded-xl text-xs transition-all flex items-start gap-2.5 border cursor-pointer ${
                             selectedAnswers[currentQuestion] === opt
                               ? 'bg-sky-50 border-sky-500 font-semibold text-[#0A2540] ring-1 ring-sky-500'

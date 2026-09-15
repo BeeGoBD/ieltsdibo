@@ -32,6 +32,7 @@ import { getTierFromScore } from '../utils/questionBank';
 import { getReadingTestSet, ReadingTestSet, ReadingQuestion } from '../utils/readingQuestions';
 import { getListeningTestSet, ListeningTestSet, ListeningQuestion } from '../utils/listeningQuestions';
 import { sound } from '../utils/soundEffects';
+import { MultiSpeakerAudioPlayer } from './MultiSpeakerAudioPlayer';
 
 interface ExamPageViewProps {
   moduleType: SkillCategory;
@@ -238,6 +239,7 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
     setGeneratedScore(record);
     setIsFinished(true);
     onExamComplete(record);
+    sound.playFanfare();
 
     try {
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
@@ -311,6 +313,7 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
                 const allQuestionsAnswered = currentQuestionsList.length > 0 && Object.keys(selectedAnswers).length === currentQuestionsList.length;
 
                 const handleSelectReadingOption = (opt: string) => {
+                  sound.playSelect();
                   setSelectedAnswers((prev) => ({
                     ...prev,
                     [currentQuestion]: opt,
@@ -623,71 +626,16 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
               {/* 2. IELTS LISTENING MODE */}
               {moduleType === 'listening' && (
                 <div className="max-w-4xl lg:max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-5">
-                  {/* Cambridge Audio Player Card */}
-                  <div className="bg-gradient-to-br from-[#0A2540] to-slate-900 text-white p-5 sm:p-6 rounded-3xl shadow-md space-y-4 border border-sky-900">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-10 h-10 rounded-2xl bg-sky-600 text-white flex items-center justify-center shadow-inner">
-                          <Headphones className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-extrabold text-sm text-white">
-                            Official Listening Audio Track
-                          </h3>
-                          <span className="text-[11px] text-sky-200">
-                            British English Audio Simulation (Cambridge Rubric)
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => setShowTranscript(!showTranscript)}
-                        className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-bold text-sky-200 flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        {showTranscript ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        <span>{showTranscript ? 'Hide Script' : 'View Script'}</span>
-                      </button>
-                    </div>
-
-                    {/* Active Section Context */}
-                    <div className="bg-white/10 p-3 rounded-2xl border border-white/10 text-xs text-sky-100">
-                      <span className="font-bold text-amber-300 block mb-0.5">
-                        {listeningData.sections[Math.min(3, Math.floor(currentQuestion / 3))]?.title}
-                      </span>
-                      <p className="text-[11px] text-slate-200">
-                        {listeningData.sections[Math.min(3, Math.floor(currentQuestion / 3))]?.context}
-                      </p>
-                    </div>
-
-                    {/* Audio Controls */}
-                    <div className="flex items-center justify-between pt-1">
-                      <button
-                        onClick={togglePlayAudio}
-                        className={`px-4 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all ${
-                          isPlayingAudio
-                            ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                            : 'bg-sky-500 hover:bg-sky-400 text-slate-950 font-black'
-                        }`}
-                      >
-                        {isPlayingAudio ? <Pause className="w-4 h-4 fill-white" /> : <Play className="w-4 h-4 fill-slate-950" />}
-                        <span>{isPlayingAudio ? 'Pause Audio' : 'Play Audio Recording'}</span>
-                      </button>
-
-                      {isPlayingAudio && (
-                        <div className="flex items-center gap-1 text-xs text-amber-300 font-mono animate-pulse">
-                          <Volume2 className="w-4 h-4" />
-                          <span>Playing British narration...</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Collapsible Transcript */}
-                    {showTranscript && (
-                      <div className="bg-black/40 p-3.5 rounded-2xl text-[11px] leading-relaxed text-slate-200 font-mono max-h-48 overflow-y-auto border border-white/10 whitespace-pre-line">
-                        {listeningData.sections[Math.min(3, Math.floor(currentQuestion / 3))]?.audioScript}
-                      </div>
-                    )}
-                  </div>
+                  {/* Multi-Speaker Natural British Human Voice Audio Player */}
+                  {(() => {
+                    const currentSection = listeningData.sections[Math.min(3, Math.floor(currentQuestion / 3))] || listeningData.sections[0];
+                    return (
+                      <MultiSpeakerAudioPlayer
+                        section={currentSection}
+                        lang={lang === 'bn' ? 'bn' : 'en'}
+                      />
+                    );
+                  })()}
 
                   {/* Question Box */}
                   <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
@@ -731,12 +679,13 @@ export const ExamPageView: React.FC<ExamPageViewProps> = ({
                         return (
                           <button
                             key={opt}
-                            onClick={() =>
+                            onClick={() => {
+                              sound.playSelect();
                               setSelectedAnswers({
                                 ...selectedAnswers,
                                 [currentQuestion]: opt,
-                              })
-                            }
+                              });
+                            }}
                             className={`w-full p-3 rounded-2xl border text-left text-xs sm:text-sm font-medium transition-all cursor-pointer flex items-start gap-3 ${
                               isSelected
                                 ? 'bg-sky-50 border-sky-600 text-[#0A2540] font-bold ring-1 ring-sky-600'
